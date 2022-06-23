@@ -20,16 +20,26 @@ def b64_to_json(data_b64: bytes) -> dict:
 def generate_file_name(header: dict) -> str:
 
     header_bytes = bytes(json.dumps(header, separators=(',', ':')), "utf-8")
-    header_crc = hex(zlib.crc32(header_bytes))[2:]
-    ts = time_ns()  # To prevent duplications + Order by value
-    rnd = str(base64.b64encode(os.urandom(2)), "utf-8")  # To farther insure no duplications
 
-    return f"{header_crc}.{ts}.{rnd}.json"
+    # E-mail ID
+    eid = hex(zlib.crc32(header_bytes))[2:]
+
+    # Timestamp to prevent duplications and to order by
+    ts = time_ns()
+
+    # Random value to farther insure no duplications
+    rnd = str(base64.b64encode(os.urandom(2)), "utf-8")
+
+    return f"{eid}.{ts}.{rnd}.json"
 
 
 def main():
     mail_entry = {
-        "notify_error": ["Developers <dev-team@somemail.com>"],  # Notify in case of error
+
+        # E-mail addresses to notify in case of error
+        "notify_error": ["Developers <dev-team@somemail.com>"],
+
+        # Header from which a unique E-mail ID is constructed
         "header": {
             "from": "Mail System <some@email.com>",
             "to": ["Some One <someone@somemail.com>"],
@@ -40,7 +50,9 @@ def main():
             "alternative_content": "Unable to present template",
             "attachments": []
         },
-        "body": {  # Template variables
+
+        # Template variables
+        "data": {
             "hello": "world",
             "some_values": [1, 2, 3, 4],
             "table": {
