@@ -28,27 +28,49 @@ def generate_file_name(header: dict) -> str:
     ts = time_ns()
 
     # Random value to farther insure no duplications
-    rnd = str(base64.b64encode(os.urandom(2)), "utf-8")
+    # uid = str(base64.b64encode(os.urandom(2)), "utf-8")
 
-    return f"{eid}.{ts}.{rnd}.json"
+    euid = header.get("uid")
+
+    return f"{eid}.{ts}.{euid}.json"
+
+
+def assign_uid(entry: dict) -> dict:
+    # TODO: Use inner timestamp and a random value to generate the UID
+    pass
 
 
 def main():
     mail_entry = {
+
+        # Unique ID of the entry
+        "uid": None,
+
+        "ts": 0,  # TODO: Call timestamp function here
 
         # E-mail addresses to notify in case of error
         "notify_error": ["Developers <dev-team@somemail.com>"],
 
         # Header from which a unique E-mail ID is constructed
         "header": {
+
+            # Name of the external system that produced this entry
+            "system": "MyExternalSystem",
+
+            # Name of the subsystem that produced this entry
+            "subsystem": "[ID:12345] Trigger: Server Disk Out-of-Space",
+
+            # E-mail header
             "from": "Mail System <some@email.com>",
             "to": ["Some One <someone@somemail.com>"],
             "cc": [],
             "bcc": [],
             "reply_to": [],
-            "template": "test",  # Represents the name of the Template.
-            "alternative_content": "Unable to present template",
+            "subject": "Warning: Your server's disk is out-of-space",
+            "template": "ops_department",  # Name of the Template.
+            "alternative_content": "Unable to render HTML. Please refer to the Ops department for details.",
             "attachments": []
+
         },
 
         # Template variables
@@ -56,8 +78,9 @@ def main():
             "hello": "world",
             "some_values": [1, 2, 3, 4],
             "table": {
-                "x": 0,
-                "y": 0
+                "Hostname": "MailServer01",
+                "IP Address": "192.168.0.1",
+                "Disk Capacity Percentage": 95
             }
         }
     }
