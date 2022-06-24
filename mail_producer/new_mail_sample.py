@@ -3,11 +3,14 @@ import os
 import json
 import zlib  # https://en.wikipedia.org/wiki/Zlib
 from time import time_ns
+from time import time
+from datetime import datetime
+from typing import Optional
 
 
 def json_to_b64(data_json: dict) -> bytes:
     data_bytes = bytes(json.dumps(data_json, separators=(',', ':')), "utf-8")
-    compressed = zlib.compress(data_bytes, level=9)  # Gzip
+    compressed = zlib.compress(data_bytes, level=9)  # Gzip -- Python 2.7: `zlib.compress(data_bytes, 9)`
     return base64.b64encode(compressed)
 
 
@@ -17,36 +20,52 @@ def b64_to_json(data_b64: bytes) -> dict:
     return json.loads(data_bytes)
 
 
-def generate_file_name(header: dict) -> str:
+def write_to_file(entry: dict) -> Optional[str]:
 
+    # Generate E-Mail ID for the given entry to identify the E-mail it belongs to
+    header = entry.get("header")
     header_bytes = bytes(json.dumps(header, separators=(',', ':')), "utf-8")
 
     # E-mail ID
     eid = hex(zlib.crc32(header_bytes))[2:]
 
-    # Timestamp to prevent duplications and to order by
-    ts = time_ns()
+    # Nanoseconds timestamp to prevent duplications and use to order by
+    ts = hex(int(time_ns() / 100))[2:]
 
-    # Random value to farther insure no duplications
-    # uid = str(base64.b64encode(os.urandom(2)), "utf-8")
+    # Entry Unique ID value to farther insure no duplications
+    enid = entry.get("id")
 
-    euid = header.get("uid")
+    # Create a JSON structured string from the `entry` dictionary
+    json_content = bytes(json.dumps(entry, indent=4), "utf-8")
 
-    return f"{eid}.{ts}.{euid}.json"
+    # Entry integrity
+    crc = hex(zlib.crc32(json_content))[2:]
+
+    filename = f"{eid}.{ts}.{enid}.{crc}.json"
+
+    with open(filename, 'wb') as fs:
+        fs.write(json_content)
+        return filename
 
 
-def assign_uid(entry: dict) -> dict:
-    # TODO: Use inner timestamp and a random value to generate the UID
-    pass
+def new_uid() -> str:
+    uid_base = base64.b64encode(os.urandom(2)) + bytes(str(time()), "utf-8")
+    uid = hex(zlib.crc32(uid_base))[2:]
+
+    # Python 2.7
+    # uid = hex(zlib.crc32(uid_base) & 0xffffffff)[2:-1]
+
+    return uid
 
 
 def main():
     mail_entry = {
 
         # Unique ID of the entry
-        "uid": None,
+        "id": new_uid(),
 
-        "ts": 0,  # TODO: Call timestamp function here
+        # UTC ISO 8601
+        "utc": datetime.utcnow().isoformat(),
 
         # E-mail addresses to notify in case of error
         "notify_error": ["Developers <dev-team@somemail.com>"],
@@ -65,36 +84,53 @@ def main():
             "to": ["Some One <someone@somemail.com>"],
             "cc": [],
             "bcc": [],
-            "reply_to": [],
+            "reply_to": [
+                "System Admin <admin@somemail.com>",
+                "Project Lead <lead@somemail.com>"
+            ],
             "subject": "Warning: Your server's disk is out-of-space",
             "template": "ops_department",  # Name of the Template.
             "alternative_content": "Unable to render HTML. Please refer to the Ops department for details.",
-            "attachments": []
+            "attachments": [
+                "guides/disk-capacity-guidelines.pdf"
+            ]
 
         },
 
         # Template variables
         "data": {
-            "hello": "world",
-            "some_values": [1, 2, 3, 4],
+            "title": "Detected Problems in Your Server",
+            "message": "We have detected a disk capacity problem with one of your servers. Please refer to the instructions below",
+            "instructions": [
+                "Remove unused software",
+                "Delete temporary files",
+                "Use a drive-cleaner application",
+                "Add additional hard-drive"
+            ],
             "table": {
                 "Hostname": "MailServer01",
                 "IP Address": "192.168.0.1",
                 "Disk Capacity Percentage": 95
-            }
+            },
+            "motd": "We are very excited to inform you about our new project that allows you to time-travel. Please refer the web-site below to find out more"
         }
     }
 
     b64 = json_to_b64(mail_entry)
+
+    b64_len = len(b64)
+    print(f"B64 Length: {len(b64)}")
+
+    # noinspection Assert
+    # https://docs.microsoft.com/en-us/troubleshoot/windows-client/shell-experience/command-line-string-limitation
+    assert b64_len <= 8191
+
     restored_entry = b64_to_json(b64)
 
     # noinspection Assert
     assert mail_entry == restored_entry
 
-    filename = generate_file_name(restored_entry.get('header'))
-
-    with open(filename, 'w', encoding='utf-8') as fs:
-        json.dump(restored_entry, fs, indent=4)
+    write_to_file(restored_entry)
 
 
 if __name__ == '__main__':

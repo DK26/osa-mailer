@@ -1,0 +1,43 @@
+{
+    "id": "78f1fda2",
+    "utc": "2022-06-24T21:20:03.630165",
+    "notify_error": [
+        "Developers <dev-team@somemail.com>"
+    ],
+    "header": {
+        "system": "MyExternalSystem",
+        "subsystem": "[ID:12345] Trigger: Server Disk Out-of-Space",
+        "from": "Mail System <some@email.com>",
+        "to": [
+            "Some One <someone@somemail.com>"
+        ],
+        "cc": [],
+        "bcc": [],
+        "reply_to": [
+            "System Admin <admin@somemail.com>",
+            "Project Lead <lead@somemail.com>"
+        ],
+        "subject": "Warning: Your server's disk is out-of-space",
+        "template": "ops_department",
+        "alternative_content": "Unable to render HTML. Please refer to the Ops department for details.",
+        "attachments": [
+            "guides/disk-capacity-guidelines.pdf"
+        ]
+    },
+    "data": {
+        "title": "Detected Problems in Your Server",
+        "message": "We have detected a disk capacity problem with one of your servers. Please refer to the instructions below",
+        "instructions": [
+            "Remove unused software",
+            "Delete temporary files",
+            "Use a drive-cleaner application",
+            "Add additional hard-drive"
+        ],
+        "table": {
+            "Hostname": "MailServer01",
+            "IP Address": "192.168.0.1",
+            "Disk Capacity Percentage": 95
+        },
+        "motd": "We are very excited to inform you about our new project that allows you to time-travel. Please refer the web-site below to find out more"
+    }
+}
