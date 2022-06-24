@@ -101,17 +101,17 @@ def main():
         "template": {
             "title": "Detected Problems in Your Server",
             "message": "We have detected a disk capacity problem with one of your servers. Please refer to the instructions below",
+            "details": {
+                "Hostname": "MailServer01",
+                "IP Address": "192.168.0.1",
+                "Disk Capacity Percentage": 95
+            },
             "instructions": [
                 "Remove unused software",
                 "Delete temporary files",
                 "Use a drive-cleaner application",
                 "Add additional hard-drive"
             ],
-            "table": {
-                "Hostname": "MailServer01",
-                "IP Address": "192.168.0.1",
-                "Disk Capacity Percentage": 95
-            },
             "motd": "We are very excited to inform you about our new project that allows you to time-travel. Please refer the web-site below to find out more"
         }
     }
