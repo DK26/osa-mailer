@@ -67,10 +67,10 @@ def main():
         # UTC ISO 8601
         "utc": datetime.utcnow().isoformat(),
 
-        # E-mail addresses to notify in case of error
+        # E-mail addresses to notify in case of an error
         "notify_error": ["Developers <dev-team@somemail.com>"],
 
-        # E-mail header from which a unique E-mail ID is constructed to associated E-mail entries
+        # E-mail header from which a unique E-mail ID is constructed to associate the E-mail entries
         "email": {
 
             # Name of the external system that produced this entry
