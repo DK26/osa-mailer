@@ -59,7 +59,7 @@ def new_uid() -> str:
 
 
 def main():
-    mail_entry = {
+    email_entry = {
 
         # Unique ID of the entry
         "id": new_uid(),
@@ -116,7 +116,7 @@ def main():
         }
     }
 
-    b64 = json_to_b64(mail_entry)
+    b64 = json_to_b64(email_entry)
 
     b64_len = len(b64)
     print(f"B64 Length: {len(b64)}")
@@ -128,7 +128,7 @@ def main():
     restored_entry = b64_to_json(b64)
 
     # noinspection Assert
-    assert mail_entry == restored_entry
+    assert email_entry == restored_entry
 
     write_to_file(restored_entry)
 
