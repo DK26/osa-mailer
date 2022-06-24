@@ -23,11 +23,11 @@ def b64_to_json(data_b64: bytes) -> dict:
 def write_to_file(entry: dict) -> Optional[str]:
 
     # Generate E-Mail ID for the given entry to identify the E-mail it belongs to
-    header = entry.get("header")
-    header_bytes = bytes(json.dumps(header, separators=(',', ':')), "utf-8")
+    email = entry.get("email")
+    email_bytes = bytes(json.dumps(email, separators=(',', ':')), "utf-8")
 
     # E-mail ID
-    eid = hex(zlib.crc32(header_bytes))[2:]
+    eid = hex(zlib.crc32(email_bytes))[2:]
 
     # Nanoseconds timestamp to prevent duplications and use to order by
     ts = hex(int(time_ns() / 100))[2:]
@@ -70,8 +70,8 @@ def main():
         # E-mail addresses to notify in case of error
         "notify_error": ["Developers <dev-team@somemail.com>"],
 
-        # Header from which a unique E-mail ID is constructed
-        "header": {
+        # E-mail header from which a unique E-mail ID is constructed to associated E-mail entries
+        "email": {
 
             # Name of the external system that produced this entry
             "system": "MyExternalSystem",
@@ -98,7 +98,7 @@ def main():
         },
 
         # Template variables
-        "data": {
+        "template": {
             "title": "Detected Problems in Your Server",
             "message": "We have detected a disk capacity problem with one of your servers. Please refer to the instructions below",
             "instructions": [

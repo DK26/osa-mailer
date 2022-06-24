@@ -1,10 +1,10 @@
 {
-    "id": "78f1fda2",
-    "utc": "2022-06-24T21:20:03.630165",
+    "id": "c4996719",
+    "utc": "2022-06-24T21:37:05.770914",
     "notify_error": [
         "Developers <dev-team@somemail.com>"
     ],
-    "header": {
+    "email": {
         "system": "MyExternalSystem",
         "subsystem": "[ID:12345] Trigger: Server Disk Out-of-Space",
         "from": "Mail System <some@email.com>",
@@ -24,7 +24,7 @@
             "guides/disk-capacity-guidelines.pdf"
         ]
     },
-    "data": {
+    "template": {
         "title": "Detected Problems in Your Server",
         "message": "We have detected a disk capacity problem with one of your servers. Please refer to the instructions below",
         "instructions": [
