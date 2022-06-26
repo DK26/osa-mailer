@@ -2,10 +2,11 @@ import sys
 import argparse
 import os
 import base64
-import zlib
+import zlib  # https://en.wikipedia.org/wiki/Zlib
 import json
 from time import time_ns
 from typing import Optional
+from pathlib import Path
 
 
 def b64_to_json(data_b64: bytes) -> dict:
@@ -37,8 +38,11 @@ def write_to_file(entry: dict, output_dir: str) -> Optional[str]:
 
     filename = os.path.join(output_dir, f"{eid}.{ts}.{enid}.{crc}.json")
 
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+
     with open(filename, 'wb') as fs:
         fs.write(json_content)
+        print(f"Output: {filename}")
         return filename
 
 
@@ -59,10 +63,9 @@ def main():
         write_entry(args.entry, args.output)
     else:
         # STDIN stream feature just in case there is a char length limit in the runtime environment.
-        print("stdin:")
+        # https://docs.microsoft.com/en-us/troubleshoot/windows-client/shell-experience/command-line-string-limitation
         for entry in sys.stdin:
             write_entry(entry, args.output)
-        print("Done.")
 
 
 if __name__ == "__main__":
