@@ -57,7 +57,10 @@ def main():
             "alternative_content": "Unable to render HTML. Please refer to the Ops department for details.",
             "attachments": [
                 "guides/disk-capacity-guidelines.pdf"
-            ]
+            ],
+
+            # Provide additional optional E-mail identifiers for the unique E-mail ID calculation
+            "custom_key": ""
 
         },
 
@@ -65,11 +68,15 @@ def main():
         "template": {
             "title": "Detected Problems in Your Server",
             "message": "We have detected a disk capacity problem with one of your servers. Please refer to the instructions below",
-            "details": {
+
+            # `+` leading sign indicated the receiver to `accumulate` this element.
+            # e.g. turn `details{ .. }` into `details [ { .. }, { .. }, ... , { .. } ]`
+            "+details": {
                 "Hostname": "MailServer01",
                 "IP Address": "192.168.0.1",
                 "Disk Capacity Percentage": 95
             },
+
             "instructions": [
                 "Remove unused software",
                 "Delete temporary files",

@@ -1,6 +1,6 @@
 {
-    "id": "9bd3a8b7",
-    "utc": "2022-06-26T21:57:53.882348",
+    "id": "298d13e6",
+    "utc": "2022-07-06T14:53:46.794321",
     "notify_error": [
         "Developers <dev-team@somemail.com>"
     ],
@@ -22,12 +22,13 @@
         "alternative_content": "Unable to render HTML. Please refer to the Ops department for details.",
         "attachments": [
             "guides/disk-capacity-guidelines.pdf"
-        ]
+        ],
+        "custom_key": ""
     },
     "template": {
         "title": "Detected Problems in Your Server",
         "message": "We have detected a disk capacity problem with one of your servers. Please refer to the instructions below",
-        "details": {
+        "+details": {
             "Hostname": "MailServer01",
             "IP Address": "192.168.0.1",
             "Disk Capacity Percentage": 95
