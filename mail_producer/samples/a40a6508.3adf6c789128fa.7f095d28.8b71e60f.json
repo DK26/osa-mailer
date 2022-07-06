@@ -1,15 +1,15 @@
 {
-    "id": "298d13e6",
-    "utc": "2022-07-06T14:53:46.794321",
+    "id": "7f095d28",
+    "utc": "2022-07-06T15:16:02.123785",
     "notify_error": [
         "Developers <dev-team@somemail.com>"
     ],
     "email": {
         "system": "MyExternalSystem",
         "subsystem": "[ID:12345] Trigger: Server Disk Out-of-Space",
-        "from": "Mail System <some@email.com>",
+        "from": "Mail System <tech-support@somemail.com>",
         "to": [
-            "Some One <someone@somemail.com>"
+            "Rick S. <someone@somemail.com>"
         ],
         "cc": [],
         "bcc": [],
@@ -27,7 +27,7 @@
     },
     "template": {
         "title": "Detected Problems in Your Server",
-        "message": "We have detected a disk capacity problem with one of your servers. Please refer to the instructions below",
+        "message": "We have detected a disk capacity problem with one or more of your servers. Please refer to the instructions below",
         "+details": {
             "Hostname": "MailServer01",
             "IP Address": "192.168.0.1",

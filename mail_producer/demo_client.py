@@ -44,8 +44,8 @@ def main():
             "subsystem": "[ID:12345] Trigger: Server Disk Out-of-Space",
 
             # E-mail header
-            "from": "Mail System <some@email.com>",
-            "to": ["Some One <someone@somemail.com>"],
+            "from": "Mail System <tech-support@somemail.com>",
+            "to": ["Rick S. <someone@somemail.com>"],
             "cc": [],
             "bcc": [],
             "reply_to": [
@@ -64,12 +64,12 @@ def main():
 
         },
 
-        # Template variables
+        # Template context variables
         "template": {
             "title": "Detected Problems in Your Server",
-            "message": "We have detected a disk capacity problem with one of your servers. Please refer to the instructions below",
+            "message": "We have detected a disk capacity problem with one or more of your servers. Please refer to the instructions below",
 
-            # `+` leading sign indicated the receiver to `accumulate` this element.
+            # `+` leading sign indicates the server to `accumulate` this key element's contents.
             # e.g. turn `details{ .. }` into `details [ { .. }, { .. }, ... , { .. } ]`
             "+details": {
                 "Hostname": "MailServer01",
