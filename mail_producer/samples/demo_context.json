@@ -1,0 +1,30 @@
+{
+  "title": "Detected Problems in Your Server",
+  "message": "We have detected a disk capacity problem with one or more of your servers. Please refer to the instructions below",
+  "details": {
+    "entries": [
+      {
+        "Hostname": "MailServer01",
+        "IP Address": "192.168.0.1",
+        "Disk Capacity Percentage": 95
+      },
+      {
+        "Hostname": "MailServer02",
+        "IP Address": "192.168.0.2",
+        "Disk Capacity Percentage": 95
+      },
+      {
+        "Hostname": "MailServer03",
+        "IP Address": "192.168.0.3",
+        "Disk Capacity Percentage": 95
+      }
+    ]
+  },
+  "instructions": [
+    "Remove unused software",
+    "Delete temporary files",
+    "Use a drive-cleaner application",
+    "Add additional hard-drive"
+  ],
+  "motd": "We are very excited to inform you about our new project that allows you to time-travel. Please refer the web-site below to find out more"
+}

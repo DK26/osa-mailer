@@ -70,11 +70,13 @@ def main():
             "message": "We have detected a disk capacity problem with one or more of your servers. Please refer to the instructions below",
 
             # `+` leading sign indicates the server to `accumulate` this key element's contents.
-            # e.g. turn `details{ .. }` into `details [ { .. }, { .. }, ... , { .. } ]`
-            "+details": {
-                "Hostname": "MailServer01",
-                "IP Address": "192.168.0.1",
-                "Disk Capacity Percentage": 95
+            # e.g. turn `entries { <ENTRY> }` into `entries [ { <ENTRY 1> }, { <ENTRY 2> }, ... , { <ENTRY N> } ]`
+            "table": {
+                "+entries": {
+                    "Hostname": "MailServer01",
+                    "IP Address": "192.168.0.1",
+                    "Disk Capacity Percentage": 95
+                }
             },
 
             "instructions": [
