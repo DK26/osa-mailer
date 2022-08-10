@@ -1,6 +1,6 @@
 {
-    "id": "a87d720d",
-    "utc": "2022-08-10T12:06:36.292422",
+    "id": "baf7c8b1",
+    "utc": "2022-08-10T18:07:15.300453",
     "notify_error": [
         "Developers <dev-team@somemail.com>"
     ],
@@ -29,11 +29,23 @@
         "title": "Detected Problems in Your Server",
         "message": "We have detected a disk capacity problem with one or more of your servers. Please refer to the instructions below",
         "table": {
-            "+entries": {
-                "Hostname": "MailServer02",
-                "IP Address": "192.168.0.2",
-                "Disk Capacity Percentage": 95
-            }
+            "+entries": [
+                {
+                    "title": "Hostname",
+                    "value": "MailServer03",
+                    "pos": 1
+                },
+                {
+                    "title": "IP Address",
+                    "value": "192.168.0.3",
+                    "pos": 2
+                },
+                {
+                    "title": "Disk Capacity Percentage",
+                    "value": 77,
+                    "pos": 3
+                }
+            ]
         },
         "instructions": [
             "Remove unused software",

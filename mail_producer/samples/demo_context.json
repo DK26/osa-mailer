@@ -3,21 +3,57 @@
   "message": "We have detected a disk capacity problem with one or more of your servers. Please refer to the instructions below",
   "details": {
     "entries": [
-      {
-        "Hostname": "MailServer01",
-        "IP Address": "192.168.0.1",
-        "Disk Capacity Percentage": 95
-      },
-      {
-        "Hostname": "MailServer02",
-        "IP Address": "192.168.0.2",
-        "Disk Capacity Percentage": 95
-      },
-      {
-        "Hostname": "MailServer03",
-        "IP Address": "192.168.0.3",
-        "Disk Capacity Percentage": 95
-      }
+      [
+        {
+          "title": "Hostname",
+          "value": "MailServer01",
+          "pos": 1
+        },
+        {
+          "title": "IP Address",
+          "value": "192.168.0.1",
+          "pos": 2
+        },
+        {
+          "title": "Disk Capacity Percentage",
+          "value": 95,
+          "pos": 3
+        }
+      ],
+      [
+        {
+          "title": "Hostname",
+          "value": "MailServer02",
+          "pos": 1
+        },
+        {
+          "title": "IP Address",
+          "value": "192.168.0.2",
+          "pos": 2
+        },
+        {
+          "title": "Disk Capacity Percentage",
+          "value": 87,
+          "pos": 3
+        }
+      ],
+      [
+        {
+          "title": "Hostname",
+          "value": "MailServer03",
+          "pos": 1
+        },
+        {
+          "title": "IP Address",
+          "value": "192.168.0.3",
+          "pos": 2
+        },
+        {
+          "title": "Disk Capacity Percentage",
+          "value": 77,
+          "pos": 3
+        }
+      ]
     ]
   },
   "instructions": [

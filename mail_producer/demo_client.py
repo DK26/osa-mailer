@@ -71,12 +71,25 @@ def main():
 
             # `+` leading sign indicates the server to `accumulate` this key element's contents.
             # e.g. turn `entries { <ENTRY> }` into `entries [ { <ENTRY 1> }, { <ENTRY 2> }, ... , { <ENTRY N> } ]`
+            # One entries list represents one line in an accumulation table, or one simple key-value table.
             "table": {
-                "+entries": {
-                    "Hostname": "MailServer01",
-                    "IP Address": "192.168.0.1",
-                    "Disk Capacity Percentage": 95
-                }
+                "+entries": [
+                    {  # TODO: Handle timestamp for context so we can know the order of the entries
+                        "title": "Hostname",
+                        "value": "MailServer01",
+                        "pos": 1  # In case the order gets mixed, so we will have the means to know hwo to re-order it
+                    },
+                    {
+                        "title": "IP Address",
+                        "value": "192.168.0.1",
+                        "pos": 2
+                    },
+                    {
+                        "title": "Disk Capacity Percentage",
+                        "value": 95,
+                        "pos": 3
+                    }
+                ]
             },
 
             "instructions": [
