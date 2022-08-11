@@ -1,6 +1,8 @@
 {
-  "title": "Detected Problems in Your Server",
-  "message": "We have detected a disk capacity problem with one or more of your servers. Please refer to the instructions below",
+  "message": {
+    "head": "Detected Problems in Your Server",
+    "body": "We have detected a disk capacity problem with one or more of your servers. Please refer to the instructions below"
+  },
   "table": {
     "type": 1,
     "entries": [
