@@ -66,39 +66,40 @@ def main():
 
         # Template context variables
         "template": {
-            "title": "Detected Problems in Your Server",
-            "message": "We have detected a disk capacity problem with one or more of your servers. Please refer to the instructions below",
-
-            # `+` leading sign indicates the server to `accumulate` this key element's contents.
-            # e.g. turn `entries { <ENTRY> }` into `entries [ { <ENTRY 1> }, { <ENTRY 2> }, ... , { <ENTRY N> } ]`
-            # One entries list represents one line in an accumulation table, or one simple key-value table.
+            "message": {
+                "head": "Detected Problems in Your Server",
+                "body": "We have detected a disk capacity problem with one or more of your servers."
+                        " Please refer to the instructions below"
+            },
             "table": {
+                # `+` leading sign indicates the server to `accumulate` this key element's contents.
+                # `+` expands `entries` to: { "idx": N, "items": [ { <ENTRY 1> }, { <ENTRY 2> }, ... , { <ENTRY N> } ] }
                 "+entries": [
-                    {  # TODO: Handle timestamp for context so we can know the order of the entries
-                        "title": "Hostname",
-                        "value": "MailServer01",
-                        "pos": 1  # In case the order gets mixed, so we will have the means to know hwo to re-order it
+                    {
+                        "idx": 1,  # In case the order gets mixed, so we will have the means to know hwo to re-order it
+                        "label": "Hostname",
+                        "value": "MailServer01"
                     },
                     {
-                        "title": "IP Address",
-                        "value": "192.168.0.1",
-                        "pos": 2
+                        "idx": 2,
+                        "label": "IP Address",
+                        "value": "192.168.0.1"
                     },
                     {
-                        "title": "Disk Capacity Percentage",
-                        "value": 95,
-                        "pos": 3
+                        "idx": 3,
+                        "label": "Disk Capacity Percentage",
+                        "value": 95
                     }
                 ]
             },
-
             "instructions": [
                 "Remove unused software",
                 "Delete temporary files",
                 "Use a drive-cleaner application",
                 "Add additional hard-drive"
             ],
-            "motd": "We are very excited to inform you about our new project that allows you to time-travel. Please refer the web-site below to find out more"
+            "motd": "We are very excited to inform you about our new project that allows you to time-travel. "
+                    "Please refer the web-site below to find out more"
         }
     }
 

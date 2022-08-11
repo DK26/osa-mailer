@@ -1,6 +1,6 @@
 {
-    "id": "d55daaef",
-    "utc": "2022-08-10T18:07:14.245600",
+    "id": "a6f12ce1",
+    "utc": "2022-08-11T15:12:59.233927",
     "notify_error": [
         "Developers <dev-team@somemail.com>"
     ],
@@ -26,24 +26,26 @@
         "custom_key": ""
     },
     "template": {
-        "title": "Detected Problems in Your Server",
-        "message": "We have detected a disk capacity problem with one or more of your servers. Please refer to the instructions below",
+        "message": {
+            "head": "Detected Problems in Your Server",
+            "body": "We have detected a disk capacity problem with one or more of your servers. Please refer to the instructions below"
+        },
         "table": {
             "+entries": [
                 {
-                    "title": "Hostname",
-                    "value": "MailServer01",
-                    "pos": 1
+                    "idx": 1,
+                    "label": "Hostname",
+                    "value": "MailServer02"
                 },
                 {
-                    "title": "IP Address",
-                    "value": "192.168.0.1",
-                    "pos": 2
+                    "idx": 2,
+                    "label": "IP Address",
+                    "value": "192.168.0.2"
                 },
                 {
-                    "title": "Disk Capacity Percentage",
-                    "value": 95,
-                    "pos": 3
+                    "idx": 3,
+                    "label": "Disk Capacity Percentage",
+                    "value": 87
                 }
             ]
         },
