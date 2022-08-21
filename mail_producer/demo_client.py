@@ -25,6 +25,8 @@ def new_uid() -> str:
 def main():
     email_entry = {
 
+        # Data related to the entry #
+
         # Unique ID of the entry
         "id": new_uid(),
 
@@ -35,7 +37,7 @@ def main():
         "notify_error": ["Developers <dev-team@somemail.com>"],
 
         # E-mail header from which a unique E-mail ID is constructed to associate the E-mail entries
-        "email": {
+        "unique_email": {
 
             # Name of the external system that produced this entry
             "system": "MyExternalSystem",
@@ -66,6 +68,7 @@ def main():
 
         # Template context variables
         "template": {
+
             "message": {
                 "head": "Detected Problems in Your Server",
                 "body": "We have detected a disk capacity problem with one or more of your servers."

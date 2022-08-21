@@ -6,3 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+serde_json = { version = "1", features = ["preserve_order"] }
+thiserror = "1"
+crc = "3"
+anyhow = "1"
