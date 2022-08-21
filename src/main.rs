@@ -34,29 +34,29 @@ enum EntryError {
     WrongFieldType(&'static str),
 }
 
-impl<'json_entry> TryFrom<&serde_json::Value> for Email<'json_entry> {
+impl<'json_entry> TryFrom<&'json_entry serde_json::Value> for Email<'json_entry> {
     type Error = EntryError;
 
-    fn try_from(value: &serde_json::Value) -> Result<Self, Self::Error> {
+    fn try_from(value: &'json_entry serde_json::Value) -> Result<Self, Self::Error> {
         let email = value.get("email").ok_or(EntryError::MissingEmailSection)?;
 
         // let system_value = email.get("system").ok_or(EntryError::MissingField("system"))?;
 
-        let system = get_str_value(value, "system")?;
-        let subsystem = get_str_value(value, "subsystem")?;
-        let from = get_str_value(value, "from")?;
+        let system = get_str_value(email, "system")?;
+        let subsystem = get_str_value(email, "subsystem")?;
+        let from = get_str_value(email, "from")?;
 
-        let to = get_vec_value(value, "to")?;
-        let cc = get_vec_value(value, "cc")?;
-        let bcc = get_vec_value(value, "bcc")?;
-        let reply_to = get_vec_value(value, "reply_to")?;
+        let to = get_vec_value(email, "to")?;
+        let cc = get_vec_value(email, "cc")?;
+        let bcc = get_vec_value(email, "bcc")?;
+        let reply_to = get_vec_value(email, "reply_to")?;
 
-        let subject = get_str_value(value, "subject")?;
-        let template = get_str_value(value, "template")?;
+        let subject = get_str_value(email, "subject")?;
+        let template = get_str_value(email, "template")?;
 
-        let alternative_content = get_str_value(value, "alternative_content")?;
+        let alternative_content = get_str_value(email, "alternative_content")?;
 
-        let attachments = get_paths_value(value, "attachments")?;
+        let attachments = get_paths_value(email, "attachments")?;
 
         let email_checksum = crc32_iso_hdlc_checksum(email.to_string().as_bytes());
         let id = format!("{:x}", email_checksum);
@@ -75,8 +75,7 @@ impl<'json_entry> TryFrom<&serde_json::Value> for Email<'json_entry> {
             attachments,
         };
 
-        // Ok(new_email)
-        todo!()
+        Ok(new_email)
     }
 }
 
@@ -204,7 +203,7 @@ fn main() -> anyhow::Result<()> {
 
     let email = Email::try_from(&all)?;
 
-    println!("Email: {email:#?}");
+    println!("{email:#?}");
 
     Ok(())
 }
