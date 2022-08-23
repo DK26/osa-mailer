@@ -4,7 +4,14 @@ mod parsing;
 use std::collections::HashMap;
 
 use errors::EntryError;
-use serde_json::{json, map::Values, Map};
+use serde::Serialize;
+
+#[derive(Serialize, Debug)]
+struct AccumulatedValue<'json_entry> {
+    idx: u32,
+    // items: Vec<&'json_entry serde_json::Value>,
+    items: &'json_entry serde_json::Value,
+}
 
 fn main() -> anyhow::Result<()> {
     let entry = r#"
@@ -72,7 +79,7 @@ fn main() -> anyhow::Result<()> {
 
     let mut all: serde_json::Value = serde_json::from_str(entry).expect("msg");
     let template = all["template"].take();
-    // let template = &all["template"];
+
     println!("{template:#}");
     println!("{}", template["instructions"]);
 
@@ -83,16 +90,20 @@ fn main() -> anyhow::Result<()> {
     let entry = parsing::Entry::try_from(&all)?;
     println!("{entry:#?}");
 
-    let mut replacements = HashMap::<&str, Vec<&serde_json::Value>>::new();
+    let mut replacements = HashMap::<&str, Vec<AccumulatedValue>>::new();
 
     fn scan_accumulations_into<'json_entry>(
-        object_value: &'json_entry Map<String, serde_json::Value>,
-        replacements: &mut HashMap<&'json_entry str, Vec<&'json_entry serde_json::Value>>,
+        object_value: &'json_entry serde_json::Map<String, serde_json::Value>,
+        replacements: &mut HashMap<&'json_entry str, Vec<AccumulatedValue<'json_entry>>>,
     ) {
         for (key, value) in object_value {
             if key.starts_with('+') {
                 let value_vec = replacements.entry(key).or_insert_with(Vec::new);
-                value_vec.push(value);
+
+                value_vec.push(AccumulatedValue {
+                    idx: (value_vec.len() + 1) as u32,
+                    items: value,
+                });
             } else if let Some(object) = value.as_object() {
                 scan_accumulations_into(object, replacements);
             }
@@ -103,7 +114,11 @@ fn main() -> anyhow::Result<()> {
     scan_accumulations_into(template.as_object().unwrap(), &mut replacements);
 
     println!("{replacements:#?}");
-    //     let x = json!({"idx": "1", "items": []});
+
+    let t = serde_json::to_value(replacements.get("+entries").unwrap())
+        .expect("Failed to create value XD");
+
+    println!("\n\n\n{t:#}");
 
     Ok(())
 }
