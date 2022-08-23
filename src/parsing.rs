@@ -6,9 +6,19 @@ use crc::{Algorithm, Crc, CRC_32_ISO_HDLC};
 // CRC_32_ISO_HDLC is compatible with Python 3
 const CRC32_ALGORITHM: Algorithm<u32> = CRC_32_ISO_HDLC;
 
+// TODO: 1. Read the Entry in its entirely and append to Vec of the same E-mail ID (Map<email_id, Vec<Entry>>)
+// TODO: 2. Order the Vec per key by UTC (or file timestamp?)
+// TODO: 3. Loop over the map for each Vec of entries for E-mail ID
+// TODO: 4. Merge each Vec `template` context
+// TODO: 5. Render template value with context
+// TODO: 6. Have the final E-mail object sent
+
+#[derive(Debug, Clone)]
+pub struct EmailId(pub String);
+
 #[derive(Debug)]
 pub struct Email<'json_entry> {
-    id: String, // Based off `email` key
+    pub id: EmailId, // Based off `email` key
     system: &'json_entry str,
     subsystem: &'json_entry str,
     from: &'json_entry str,
@@ -71,7 +81,7 @@ impl<'json_entry> TryFrom<&'json_entry serde_json::Value> for Email<'json_entry>
         let attachments = get_path_vec_value(email, "attachments")?;
 
         let email_checksum = crc32_iso_hdlc_checksum(email.to_string().as_bytes());
-        let id = format!("{:x}", email_checksum);
+        let id = EmailId(format!("{:x}", email_checksum));
         let new_email = Email {
             id,
             system,
