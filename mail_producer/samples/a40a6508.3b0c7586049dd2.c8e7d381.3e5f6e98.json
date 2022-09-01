@@ -1,6 +1,6 @@
 {
-    "id": "e98928aa",
-    "utc": "2022-08-11T15:13:00.769377",
+    "id": "c8e7d381",
+    "utc": "2022-09-01T22:44:12.491840+00:00",
     "notify_error": [
         "Developers <dev-team@somemail.com>"
     ],
@@ -35,17 +35,17 @@
                 {
                     "idx": 1,
                     "label": "Hostname",
-                    "value": "MailServer03"
+                    "value": "MailServer01"
                 },
                 {
                     "idx": 2,
                     "label": "IP Address",
-                    "value": "192.168.0.3"
+                    "value": "192.168.0.1"
                 },
                 {
                     "idx": 3,
                     "label": "Disk Capacity Percentage",
-                    "value": 77
+                    "value": 95
                 }
             ]
         },
