@@ -1,10 +1,13 @@
+mod entries;
 mod errors;
-mod parsing;
 
 use std::{any::Any, collections::HashMap};
 
+use entries::crc32_iso_hdlc_checksum;
 use errors::EntryError;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+
+use chrono::DateTime;
 
 #[derive(Serialize, Debug)]
 struct AccumulatedValue<'json_entry> {
@@ -13,11 +16,42 @@ struct AccumulatedValue<'json_entry> {
     items: &'json_entry serde_json::Value,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+struct Email {
+    system: String,
+    subsystem: String,
+    from: String,
+    to: Vec<String>,
+    cc: Vec<String>,
+    bcc: Vec<String>,
+    reply_to: Vec<String>,
+    subject: String,
+    template: String,
+    alternative_content: String,
+    attachments: Vec<String>,
+    custom_key: String,
+}
+#[derive(Serialize, Deserialize, Debug)]
+struct Entry {
+    id: String,
+    utc: String,
+    notify_error: Vec<String>,
+    email: Email,
+    template: serde_json::Value,
+}
+
+impl Entry {
+    pub fn email_id(&self) -> u32 {
+        let email_string = serde_json::to_string(&self.email).expect("This would be a paradox.");
+        crc32_iso_hdlc_checksum(email_string.as_bytes())
+    }
+}
+
 fn main() -> anyhow::Result<()> {
     let entry_1 = r#"
     {
         "id": "50bf9e7e",
-        "utc": "2022-08-11T15:12:59.995532",
+        "utc": "2022-09-01T22:44:11.852662+00:00",
         "notify_error": [
             "Developers <dev-team@somemail.com>"
         ],
@@ -81,7 +115,7 @@ fn main() -> anyhow::Result<()> {
     let entry_2 = r#"
     {
         "id": "50bf9e7e",
-        "utc": "2022-08-11T15:12:59.995532",
+        "utc": "2022-09-01T22:44:09.302646+00:00",
         "notify_error": [
             "Developers <dev-team@somemail.com>"
         ],
@@ -142,6 +176,32 @@ fn main() -> anyhow::Result<()> {
         }
     }"#;
 
+    // serde_json::from_str(input).unwrap();
+    let entries_pool: Vec<Entry> = vec![
+        serde_json::from_str(entry_1).unwrap(),
+        serde_json::from_str(entry_2).unwrap(),
+    ];
+
+    let mut emails: HashMap<u32, Vec<Entry>> = HashMap::new();
+
+    // Accumulate entries of the same E-mail
+    for entry in entries_pool {
+        let email_id = entry.email_id();
+        let entries = emails.entry(email_id).or_insert_with(Vec::new);
+        entries.push(entry)
+    }
+
+    // Order entries by their UTC time
+    for (_, value) in emails.iter_mut() {
+        value.sort_by(|a, b| {
+            let a_time = DateTime::parse_from_rfc3339(&a.utc).unwrap();
+            let b_time = DateTime::parse_from_rfc3339(&b.utc).unwrap();
+            a_time.cmp(&b_time)
+        })
+    }
+
+    println!("Debug Emails: {emails:#?}");
+
     // TODO: 1. Build the structure around E-mail details by ID
     // TODO: 2. Merge `Accumulated` for the Vec of each E-mail ID
 
@@ -161,19 +221,19 @@ fn main() -> anyhow::Result<()> {
 
     let mut entry_1_value: serde_json::Value = serde_json::from_str(entry_1).expect("msg");
     let mut entry_2_value: serde_json::Value = serde_json::from_str(entry_2).expect("msg");
-    let template = entry_1_value["template"].take();
+    // let template = entry_1_value["template"].take();
 
-    println!("{template:#}");
-    println!("{}", template["instructions"]);
+    // println!("{template:#}");
+    // println!("{}", template["instructions"]);
 
-    let email_1 = parsing::Email::try_from(&entry_1_value)?;
-    let email_2 = parsing::Email::try_from(&entry_2_value)?;
+    let entry_1 = entries::Entry::try_from(&entry_1_value)?;
+    let entry_2 = entries::Entry::try_from(&entry_2_value)?;
 
-    assert_eq!(email_1.id.0, email_2.id.0);
+    assert_eq!(entry_1.email.id.0, entry_2.email.id.0);
 
-    println!("{email_1:#?}");
+    println!("{entry_1:#?}");
 
-    let entry = parsing::Entry::try_from(&entry_1_value)?;
+    let entry = entries::Entry::try_from(&entry_1_value)?;
     println!("{entry:#?}");
 
     let mut replacements = HashMap::<&str, Vec<AccumulatedValue>>::new();
@@ -197,8 +257,8 @@ fn main() -> anyhow::Result<()> {
         }
     }
 
-    scan_accumulations_into(template.as_object().unwrap(), &mut replacements);
-    scan_accumulations_into(template.as_object().unwrap(), &mut replacements);
+    // scan_accumulations_into(template.as_object().unwrap(), &mut replacements);
+    // scan_accumulations_into(template.as_object().unwrap(), &mut replacements);
 
     println!("{replacements:#?}");
 

@@ -2,7 +2,7 @@ import json
 import zlib  # https://en.wikipedia.org/wiki/Zlib
 import base64
 import os
-from datetime import datetime
+import datetime
 from time import time
 
 
@@ -30,14 +30,14 @@ def main():
         # Unique ID of the entry
         "id": new_uid(),
 
-        # UTC ISO 8601
-        "utc": datetime.utcnow().isoformat(),
+        # UTC ISO 8601 RFC3339
+        "utc": datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc).isoformat(),
 
         # E-mail addresses to notify in case of an error
         "notify_error": ["Developers <dev-team@somemail.com>"],
 
         # E-mail header from which a unique E-mail ID is constructed to associate the E-mail entries
-        "unique_email": {
+        "email": {
 
             # Name of the external system that produced this entry
             "system": "MyExternalSystem",

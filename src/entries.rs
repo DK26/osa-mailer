@@ -17,6 +17,18 @@ const CRC32_ALGORITHM: Algorithm<u32> = CRC_32_ISO_HDLC;
 pub struct EmailId(pub String);
 
 #[derive(Debug)]
+pub struct Template<'json_entry>(pub &'json_entry serde_json::Map<String, serde_json::Value>);
+
+impl<'json_entry> TryFrom<&'json_entry serde_json::Value> for Template<'json_entry> {
+    type Error = EntryError;
+
+    fn try_from(value: &'json_entry serde_json::Value) -> Result<Self, Self::Error> {
+        let template = get_obj_value(value, "template")?;
+        Ok(Template(template))
+    }
+}
+
+#[derive(Debug)]
 pub struct Email<'json_entry> {
     pub id: EmailId, // Based off `email` key
     system: &'json_entry str,
@@ -27,7 +39,7 @@ pub struct Email<'json_entry> {
     bcc: Vec<&'json_entry str>,
     reply_to: Vec<&'json_entry str>,
     subject: &'json_entry str,
-    template: &'json_entry str,
+    // template: &'json_entry str,
     alternative_content: &'json_entry str,
     attachments: Vec<&'json_entry Path>,
     // custom_key: &'json_entry str,
@@ -38,6 +50,8 @@ pub struct Entry<'json_entry> {
     id: &'json_entry str,
     utc: &'json_entry str,
     notify_error: Vec<&'json_entry str>,
+    pub email: Email<'json_entry>,
+    pub template: Template<'json_entry>,
 }
 
 impl<'json_entry> TryFrom<&'json_entry serde_json::Value> for Entry<'json_entry> {
@@ -48,13 +62,15 @@ impl<'json_entry> TryFrom<&'json_entry serde_json::Value> for Entry<'json_entry>
         let utc = get_str_value(value, "utc")?;
         let notify_error = get_str_vec_value(value, "notify_error")?;
 
-        let res = Entry {
+        let entry = Entry {
             id,
             utc,
             notify_error,
+            email: Email::try_from(value)?,
+            template: Template::try_from(value)?,
         };
 
-        Ok(res)
+        Ok(entry)
     }
 }
 
@@ -74,7 +90,6 @@ impl<'json_entry> TryFrom<&'json_entry serde_json::Value> for Email<'json_entry>
         let reply_to = get_str_vec_value(email, "reply_to")?;
 
         let subject = get_str_value(email, "subject")?;
-        let template = get_str_value(email, "template")?;
 
         let alternative_content = get_str_value(email, "alternative_content")?;
 
@@ -92,7 +107,7 @@ impl<'json_entry> TryFrom<&'json_entry serde_json::Value> for Email<'json_entry>
             bcc,
             reply_to,
             subject,
-            template,
+            // template,
             alternative_content,
             attachments,
         };
@@ -102,7 +117,7 @@ impl<'json_entry> TryFrom<&'json_entry serde_json::Value> for Email<'json_entry>
 }
 
 /// Returns a checksum calculated with CRC32 using the ISO HDLC algorithm for compatibility with Python.
-fn crc32_iso_hdlc_checksum(bytes: &[u8]) -> u32 {
+pub fn crc32_iso_hdlc_checksum(bytes: &[u8]) -> u32 {
     let crc: Crc<u32> = Crc::<u32>::new(&CRC32_ALGORITHM);
     crc.checksum(bytes)
 }
@@ -112,6 +127,20 @@ fn get_str_value<'json_entry>(
     key: &'static str,
 ) -> Result<&'json_entry str, EntryError> {
     let result = if let serde_json::Value::String(v) =
+        value.get(key).ok_or(EntryError::MissingField(key))?
+    {
+        v
+    } else {
+        return Err(EntryError::WrongFieldType(key));
+    };
+    Ok(result)
+}
+
+fn get_obj_value<'json_entry>(
+    value: &'json_entry serde_json::Value,
+    key: &'static str,
+) -> Result<&'json_entry serde_json::Map<String, serde_json::Value>, EntryError> {
+    let result = if let serde_json::Value::Object(v) =
         value.get(key).ok_or(EntryError::MissingField(key))?
     {
         v
