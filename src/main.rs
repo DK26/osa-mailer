@@ -7,7 +7,7 @@ use entries::crc32_iso_hdlc_checksum;
 use errors::EntryError;
 use serde::{Deserialize, Serialize};
 
-use chrono::DateTime;
+use chrono::{DateTime, FixedOffset};
 
 #[derive(Serialize, Debug)]
 struct AccumulatedValue<'json_entry> {
@@ -34,7 +34,9 @@ struct Email {
 #[derive(Serialize, Deserialize, Debug)]
 struct Entry {
     id: String,
-    utc: String,
+    // utc: String,
+    // #[serde(with = )]
+    utc: DateTime<FixedOffset>,
     notify_error: Vec<String>,
     email: Email,
     template: serde_json::Value,
@@ -47,7 +49,7 @@ impl Entry {
     }
 }
 
-fn main() -> anyhow::Result<()> {
+fn load_files() -> Vec<Entry> {
     let entry_1 = r#"
     {
         "id": "50bf9e7e",
@@ -114,7 +116,7 @@ fn main() -> anyhow::Result<()> {
 
     let entry_2 = r#"
     {
-        "id": "50bf9e7e",
+        "id": "50bf9e7zz",
         "utc": "2022-09-01T22:44:09.302646+00:00",
         "notify_error": [
             "Developers <dev-team@somemail.com>"
@@ -176,12 +178,13 @@ fn main() -> anyhow::Result<()> {
         }
     }"#;
 
-    // serde_json::from_str(input).unwrap();
-    let entries_pool: Vec<Entry> = vec![
+    vec![
         serde_json::from_str(entry_1).unwrap(),
         serde_json::from_str(entry_2).unwrap(),
-    ];
+    ]
+}
 
+fn map_emails(entries_pool: Vec<Entry>) -> HashMap<u32, Vec<Entry>> {
     let mut emails: HashMap<u32, Vec<Entry>> = HashMap::new();
 
     // Accumulate entries of the same E-mail
@@ -193,13 +196,15 @@ fn main() -> anyhow::Result<()> {
 
     // Order entries by their UTC time
     for (_, value) in emails.iter_mut() {
-        value.sort_by(|a, b| {
-            let a_time = DateTime::parse_from_rfc3339(&a.utc).unwrap();
-            let b_time = DateTime::parse_from_rfc3339(&b.utc).unwrap();
-            a_time.cmp(&b_time)
-        })
+        value.sort_by(|a, b| a.utc.cmp(&b.utc))
     }
 
+    emails
+}
+
+fn main() -> anyhow::Result<()> {
+    let entries_pool = load_files();
+    let emails = map_emails(entries_pool);
     println!("Debug Emails: {emails:#?}");
 
     // TODO: 1. Build the structure around E-mail details by ID
@@ -219,22 +224,22 @@ fn main() -> anyhow::Result<()> {
     //     }
     // }
 
-    let mut entry_1_value: serde_json::Value = serde_json::from_str(entry_1).expect("msg");
-    let mut entry_2_value: serde_json::Value = serde_json::from_str(entry_2).expect("msg");
+    // let mut entry_1_value: serde_json::Value = serde_json::from_str(entry_1).expect("msg");
+    // let mut entry_2_value: serde_json::Value = serde_json::from_str(entry_2).expect("msg");
     // let template = entry_1_value["template"].take();
 
     // println!("{template:#}");
     // println!("{}", template["instructions"]);
 
-    let entry_1 = entries::Entry::try_from(&entry_1_value)?;
-    let entry_2 = entries::Entry::try_from(&entry_2_value)?;
+    // let entry_1 = entries::Entry::try_from(&entry_1_value)?;
+    // let entry_2 = entries::Entry::try_from(&entry_2_value)?;
 
-    assert_eq!(entry_1.email.id.0, entry_2.email.id.0);
+    // assert_eq!(entry_1.email.id.0, entry_2.email.id.0);
 
-    println!("{entry_1:#?}");
+    // println!("{entry_1:#?}");
 
-    let entry = entries::Entry::try_from(&entry_1_value)?;
-    println!("{entry:#?}");
+    // let entry = entries::Entry::try_from(&entry_1_value)?;
+    // println!("{entry:#?}");
 
     let mut replacements = HashMap::<&str, Vec<AccumulatedValue>>::new();
 
