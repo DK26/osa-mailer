@@ -13,13 +13,12 @@ use serde::{Deserialize, Serialize};
 use chrono::{DateTime, FixedOffset};
 
 #[derive(Serialize, Debug)]
-struct AccumulatedValue<'json_entry> {
-    idx: u32,
-    // items: Vec<&'json_entry serde_json::Value>,
-    items: &'json_entry serde_json::Value,
+struct AccumulatedValue {
+    n: u32,
+    v: serde_json::Value,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 struct Email {
     system: String,
     subsystem: String,
@@ -36,7 +35,7 @@ struct Email {
 }
 
 /// A Composed E-mail is one that has all of its context gathered and ordered.
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Default)]
 struct ComposedEmail {
     header: Email,
     context: serde_json::Map<String, serde_json::Value>,
@@ -45,8 +44,6 @@ struct ComposedEmail {
 #[derive(Serialize, Deserialize, Debug)]
 struct Entry {
     id: String,
-    // utc: String,
-    // #[serde(with = )]
     utc: DateTime<FixedOffset>,
     notify_error: Vec<String>,
     email: Email,
@@ -223,11 +220,56 @@ fn map_emails(entries_pool: Vec<Entry>) -> EmailEntries {
     email_entries
 }
 
-fn compose_emails(email_entries: &EmailEntries) -> Vec<ComposedEmail> {
-    let composed_emails: Vec<ComposedEmail>;
+fn scan_accumulations(
+    context: &serde_json::Map<String, serde_json::Value>,
+    replacements: &mut HashMap<String, Vec<AccumulatedValue>>,
+) {
+    for (k, v) in context {
+        if k.starts_with('+') {
+        } else {
+            match v {
+                serde_json::Value::Null => todo!(),
+                serde_json::Value::Bool(_) => todo!(),
+                serde_json::Value::Number(_) => todo!(),
+                serde_json::Value::String(_) => todo!(),
+                serde_json::Value::Array(_) => todo!(),
+                serde_json::Value::Object(_) => todo!(),
+            }
+        }
+    }
+}
 
-    for (email_id, entries) in email_entries {}
-    todo!()
+fn compose_emails(email_entries: &EmailEntries) -> Vec<ComposedEmail> {
+    let mut composed_emails = Vec::new();
+
+    for (_, entries) in email_entries {
+        let first_entry = entries
+            .iter()
+            .nth(0)
+            .expect("The vector was created empty when inserted to the map.");
+
+        let email = first_entry.email.clone();
+
+        let mut context = first_entry.context.clone();
+
+        let mut accumulation_values: HashMap<String, Vec<AccumulatedValue>> = HashMap::new();
+
+        for entry in entries {
+            // TODO: Compose / Mutate context
+
+            let local_context = &entry.context;
+            scan_accumulations(local_context, &mut accumulation_values);
+        }
+
+        // TODO: Replace Values using `accumulation_values`
+
+        let composed_email = ComposedEmail {
+            header: email,
+            context,
+        };
+        composed_emails.push(composed_email);
+    }
+    composed_emails
 }
 
 fn main() -> anyhow::Result<()> {
@@ -274,15 +316,15 @@ fn main() -> anyhow::Result<()> {
     let t = HashMap::<Vec<&'static str>, &'static str>::new();
     fn scan_accumulations_into<'json_entry>(
         object_value: &'json_entry serde_json::Map<String, serde_json::Value>,
-        replacements: &mut HashMap<&'json_entry str, Vec<AccumulatedValue<'json_entry>>>,
+        replacements: &mut HashMap<&'json_entry str, Vec<AccumulatedValue>>,
     ) {
         for (key, value) in object_value {
             if key.starts_with('+') {
                 let value_vec = replacements.entry(key).or_insert_with(Vec::new);
 
                 value_vec.push(AccumulatedValue {
-                    idx: (value_vec.len() + 1) as u32,
-                    items: value,
+                    n: (value_vec.len() + 1) as u32,
+                    v: value.clone(),
                 });
             } else if let Some(object) = value.as_object() {
                 scan_accumulations_into(object, replacements);
