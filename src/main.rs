@@ -1,7 +1,10 @@
 mod entries;
 mod errors;
 
-use std::{any::Any, collections::HashMap};
+use std::{
+    any::Any,
+    collections::{BTreeMap, HashMap},
+};
 
 use entries::crc32_iso_hdlc_checksum;
 use errors::EntryError;
@@ -31,6 +34,14 @@ struct Email {
     attachments: Vec<String>,
     custom_key: String,
 }
+
+/// A Composed E-mail is one that has all of its context gathered and ordered.
+#[derive(Serialize, Deserialize, Debug)]
+struct ComposedEmail {
+    header: Email,
+    context: serde_json::Map<String, serde_json::Value>,
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 struct Entry {
     id: String,
@@ -39,12 +50,14 @@ struct Entry {
     utc: DateTime<FixedOffset>,
     notify_error: Vec<String>,
     email: Email,
-    template: serde_json::Value,
+    context: serde_json::Map<String, serde_json::Value>,
 }
 
 impl Entry {
+    /// Calculate the E-Mail ID for the current entry.
     pub fn email_id(&self) -> u32 {
-        let email_string = serde_json::to_string(&self.email).expect("This would be a paradox.");
+        let email_string = serde_json::to_string(&self.email)
+            .expect("Deserialized from JSON but cannot be serialized into JSON?");
         crc32_iso_hdlc_checksum(email_string.as_bytes())
     }
 }
@@ -78,7 +91,7 @@ fn load_files() -> Vec<Entry> {
             ],
             "custom_key": ""
         },
-        "template": {
+        "context": {
             "message": {
                 "head": "Detected Problems in Your Server",
                 "body": "We have detected a disk capacity problem with one or more of your servers. Please refer to the instructions below"
@@ -142,7 +155,7 @@ fn load_files() -> Vec<Entry> {
             ],
             "custom_key": ""
         },
-        "template": {
+        "context": {
             "message": {
                 "head": "Detected Problems in Your Server",
                 "body": "We have detected a disk capacity problem with one or more of your servers. Please refer to the instructions below"
@@ -184,28 +197,43 @@ fn load_files() -> Vec<Entry> {
     ]
 }
 
-fn map_emails(entries_pool: Vec<Entry>) -> HashMap<u32, Vec<Entry>> {
-    let mut emails: HashMap<u32, Vec<Entry>> = HashMap::new();
+type EmailEntries = HashMap<u32, Vec<Entry>>;
+
+/// Arrange all entries for each E-Mail ID in an ordered manure.
+fn map_emails(entries_pool: Vec<Entry>) -> EmailEntries {
+    let mut email_entries: EmailEntries = HashMap::new();
 
     // Accumulate entries of the same E-mail
     for entry in entries_pool {
+        // Calculate ID for each E-Mail entry
         let email_id = entry.email_id();
-        let entries = emails.entry(email_id).or_insert_with(Vec::new);
+
+        // Retrieve entries vector for E-Mail ID (or create one if doesn't exists)
+        let entries = email_entries.entry(email_id).or_insert_with(Vec::new);
+
+        // Append new Entry to the E-Mail ID
         entries.push(entry)
     }
 
     // Order entries by their UTC time
-    for (_, value) in emails.iter_mut() {
+    for (_, value) in email_entries.iter_mut() {
         value.sort_by(|a, b| a.utc.cmp(&b.utc))
     }
 
-    emails
+    email_entries
+}
+
+fn compose_emails(email_entries: &EmailEntries) -> Vec<ComposedEmail> {
+    let composed_emails: Vec<ComposedEmail>;
+
+    for (email_id, entries) in email_entries {}
+    todo!()
 }
 
 fn main() -> anyhow::Result<()> {
     let entries_pool = load_files();
-    let emails = map_emails(entries_pool);
-    println!("Debug Emails: {emails:#?}");
+    let emails_map = map_emails(entries_pool); // Each E-Mail ID with its E-mail contents, in order
+    println!("Debug Emails: {emails_map:#?}");
 
     // TODO: 1. Build the structure around E-mail details by ID
     // TODO: 2. Merge `Accumulated` for the Vec of each E-mail ID
@@ -265,12 +293,78 @@ fn main() -> anyhow::Result<()> {
     // scan_accumulations_into(template.as_object().unwrap(), &mut replacements);
     // scan_accumulations_into(template.as_object().unwrap(), &mut replacements);
 
-    println!("{replacements:#?}");
+    println!("Replacement:\n{replacements:#?}");
 
-    let t = serde_json::to_value(replacements.get("+entries").unwrap())
-        .expect("Failed to create value XD");
+    // let t = serde_json::to_value(replacements.get("+entries").unwrap())
+    //     .expect("Failed to create value XD");
 
-    println!("\n\n\n{t:#}");
+    // println!("\n\n\n{t:#}");
+
+    // let acc_object: serde_json::Value = serde_json::Value::Object(())
+    // let acc_value: serde_json::Value = serde_json::Value::Object(Map<String, Value>);
+    // let test_value: serde_json::Value = AccumulatedValue {
+    //     idx: todo!(),
+    //     items: todo!(),
+    // }
+    // .into();
+
+    // fn scan_map(
+    //     object_value: &serde_json::Map<String, serde_json::Value>,
+    //     target_object: &mut serde_json::Map<String, serde_json::Value>,
+    // ) {
+    //     for (key, value) in object_value {
+    //         let v = match value {
+    //             serde_json::Value::Null => todo!(),
+    //             serde_json::Value::Bool(_) => todo!(),
+    //             serde_json::Value::Number(_) => todo!(),
+    //             serde_json::Value::String(_) => todo!(),
+    //             serde_json::Value::Array(v) => {
+    //                 for i in v {
+    //                     // scan_map(i, target_object)
+    //                 }
+    //                 todo!()
+    //             }
+    //             serde_json::Value::Object(m) => scan_map(m, target_object),
+    //         };
+    //         println!("Cloning key {key} = {v:?}\n");
+    //         target_object.insert(key.clone(), v);
+
+    //         if let serde_json::Value::Object(m) = value {
+    //             scan_map(m, target_object)
+    //         }
+    //         target_object.insert(key.clone(), value.clone());
+    //     }
+
+    // fn process_value(
+    //     value: &serde_json::Value,
+    //     target_object: &mut serde_json::Map<String, serde_json::Value>,
+    // ) {
+    //     match value {
+    //         serde_json::Value::Null => todo!(),
+    //         serde_json::Value::Bool(_) => todo!(),
+    //         serde_json::Value::Number(_) => todo!(),
+    //         serde_json::Value::String(_) => todo!(),
+    //         serde_json::Value::Array(v) => {
+    //             for i in v {
+    //                 process_value(i, target_object)
+    //             }
+    //         }
+    //         serde_json::Value::Object(m) => {
+    //             for (k, v) in m {
+    //                 // TODO: Check for `+`
+    //                 process_value(v, target_object)
+    //             }
+    //         }
+    //     }
+    // }
+
+    // let map_val = serde_json::to_value(emails_map).unwrap();
+    // if let serde_json::Value::Object(m) = map_val {
+    //     let mut new_map = serde_json::Map::new();
+    //     scan_map(&m, &mut new_map);
+    // }
+
+    // let _ = copy_map();
 
     Ok(())
 }

@@ -67,7 +67,7 @@ def main():
         },
 
         # Template context variables
-        "template": {
+        "context": {
 
             "message": {
                 "head": "Detected Problems in Your Server",
@@ -75,6 +75,8 @@ def main():
                         " Please refer to the instructions below"
             },
             "table": {
+                "type": 1,
+
                 # `+` leading sign indicates the server to `accumulate` this key element's contents.
                 # `+` expands `entries` to: { "idx": N, "items": [ { <ENTRY 1> }, { <ENTRY 2> }, ... , { <ENTRY N> } ] }
                 "+entries": [

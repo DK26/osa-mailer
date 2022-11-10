@@ -8,7 +8,7 @@
     "entries": [
       {
         "idx": 1,
-        "items": [
+        "value": [
           {
             "idx": 1,
             "label": "Hostname",
@@ -48,7 +48,7 @@
       },
       {
         "idx": 3,
-        "items": [
+        "value": [
           {
             "idx": 1,
             "label": "Hostname",
