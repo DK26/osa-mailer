@@ -1,3 +1,5 @@
+// https://stackoverflow.com/questions/65356683/how-to-mutate-serde-json-value-by-adding-additional-fields
+
 mod entries;
 mod errors;
 
@@ -185,9 +187,74 @@ fn load_files() -> Vec<Entry> {
         }
     }"#;
 
+    let entry_3 = r#"
+    {
+        "id": "50bf9e7zzv",
+        "utc": "2022-09-01T22:44:10.302646+00:00",
+        "notify_error": [
+            "Developers <dev-team@somemail.com>"
+        ],
+        "email": {
+            "system": "MyExternalSystem",
+            "subsystem": "[ID:12345] Trigger: Server Disk Out-of-Space",
+            "from": "Mail System <tech-support@somemail.com>",
+            "to": [
+                "Dave. K <dikaveman@somemail.com>"
+            ],
+            "cc": [],
+            "bcc": [],
+            "reply_to": [
+                "System Admin <admin@somemail.com>",
+                "Project Lead <lead@somemail.com>"
+            ],
+            "subject": "Warning: Your server's disk is out-of-space",
+            "template": "ops_department",
+            "alternative_content": "Unable to render HTML. Please refer to the Ops department for details.",
+            "attachments": [
+                "guides/disk-capacity-guidelines.pdf"
+            ],
+            "custom_key": ""
+        },
+        "context": {
+            "message": {
+                "head": "Detected Problems in Your Server",
+                "body": "We have detected a disk capacity problem with one or more of your servers. Please refer to the instructions below"
+            },
+            "table": {
+                "type": 1,
+                "+entries": [
+                    {
+                        "idx": 1,
+                        "label": "Hostname",
+                        "value": "GameServer01"
+                    },
+                    {
+                        "idx": 2,
+                        "label": "IP Address",
+                        "value": "172.14.0.2"
+                    },
+                    {
+                        "idx": 3,
+                        "label": "Disk Capacity Percentage",
+                        "value": 99
+                    }
+                ]
+            },
+            "+dummy": 2,
+            "instructions": [
+                "Remove unused software",
+                "Delete temporary files",
+                "Use a drive-cleaner application",
+                "Add additional hard-drive"
+            ],
+            "motd": "We are very excited to inform you about our new project that allows you to time-travel. Please refer the web-site below to find out more"
+        }
+    }"#;
+
     vec![
         serde_json::from_str(entry_1).unwrap(),
         serde_json::from_str(entry_2).unwrap(),
+        serde_json::from_str(entry_3).unwrap(),
     ]
 }
 
@@ -262,17 +329,12 @@ fn compose_emails(email_entries: &EmailEntries) -> Vec<ComposedEmail> {
             .get(0)
             .expect("The vector was created empty when inserted to the map.");
 
-        // println!("first_entry = {first_entry:#?}");
-
         let email = first_entry.email.clone();
 
         let mut final_context = first_entry.context.clone();
 
         for entry in entries {
-            // TODO: Compose / Mutate context
-
             let entry_context = &entry.context;
-            // scan_accumulations(entry_context, &mut accumulation_values);
             copy_and_accumulate(entry_context, &mut final_context);
         }
 
@@ -289,13 +351,9 @@ fn main() -> anyhow::Result<()> {
     let entries_pool = load_files();
     let emails_map = map_emails(entries_pool); // Each E-Mail ID with its E-mail contents, in order
 
-    // println!("Debug Emails: {emails_map:#?}");
-
     let res = compose_emails(&emails_map);
 
     println!("res = {res:#?}");
-
-    // https://stackoverflow.com/questions/65356683/how-to-mutate-serde-json-value-by-adding-additional-fields
 
     Ok(())
 }
