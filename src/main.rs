@@ -13,8 +13,8 @@ use chrono::{DateTime, FixedOffset};
 
 #[derive(Serialize, Debug)]
 struct AccumulatedValue {
-    n: u32,
-    v: serde_json::Value,
+    number: u32,
+    value: serde_json::Value,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
@@ -287,7 +287,6 @@ fn map_emails(entries_pool: Vec<Entry>) -> EmailEntries {
 type JsonObject = serde_json::Map<String, serde_json::Value>;
 
 fn copy_and_accumulate(source: &JsonObject, target: &mut JsonObject) {
-    // FIXME: Make sure the end result doesn't have the `+` key
     // Scan all key/value elements in the source JSON object
     for (k, v) in source {
         // Detected an accumulation sign in key name
@@ -303,8 +302,8 @@ fn copy_and_accumulate(source: &JsonObject, target: &mut JsonObject) {
 
             if let serde_json::Value::Array(value_vec) = value_vec {
                 value_vec.push(serde_json::json!(AccumulatedValue {
-                    n: (value_vec.len() + 1) as u32,
-                    v: v.clone(),
+                    number: (value_vec.len() + 1) as u32,
+                    value: v.clone(),
                 }));
             }
         } else if let serde_json::Value::Object(json_obj_borrowed) = v {
@@ -327,7 +326,7 @@ fn compose_emails(email_entries: &EmailEntries) -> Vec<ComposedEmail> {
     for entries in email_entries.values() {
         let first_entry = entries
             .get(0)
-            .expect("The vector was created empty when inserted to the map.");
+            .expect("The vector was created empty when it was inserted to the map.");
 
         let email = first_entry.email.clone();
 
