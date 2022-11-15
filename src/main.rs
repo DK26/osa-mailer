@@ -1,10 +1,7 @@
 mod entries;
 mod errors;
 
-use std::{
-    any::Any,
-    collections::{BTreeMap, HashMap},
-};
+use std::collections::HashMap;
 
 use entries::crc32_iso_hdlc_checksum;
 use errors::EntryError;
@@ -220,21 +217,39 @@ fn map_emails(entries_pool: Vec<Entry>) -> EmailEntries {
     email_entries
 }
 
-fn scan_accumulations(
-    context: &serde_json::Map<String, serde_json::Value>,
-    replacements: &mut HashMap<String, Vec<AccumulatedValue>>,
-) {
-    for (k, v) in context {
-        if k.starts_with('+') {
-        } else {
-            match v {
-                serde_json::Value::Null => todo!(),
-                serde_json::Value::Bool(_) => todo!(),
-                serde_json::Value::Number(_) => todo!(),
-                serde_json::Value::String(_) => todo!(),
-                serde_json::Value::Array(_) => todo!(),
-                serde_json::Value::Object(_) => todo!(),
+type JsonObject = serde_json::Map<String, serde_json::Value>;
+
+fn copy_and_accumulate(source: &JsonObject, target: &mut JsonObject) {
+    // FIXME: Make sure the end result doesn't have the `+` key
+    // Scan all key/value elements in the source JSON object
+    for (k, v) in source {
+        // Detected an accumulation sign in key name
+
+        if let Some(key_name) = k.strip_prefix('+') {
+            // Remove the prefixed version key from the target JSON object
+            target.remove(k);
+
+            // FIXME: Return error if key without `+` prefix already exists within the same JSON Object (DuplicationError)
+            let value_vec = target
+                .entry(key_name)
+                .or_insert_with(|| serde_json::Value::Array(Vec::new()));
+
+            if let serde_json::Value::Array(value_vec) = value_vec {
+                value_vec.push(serde_json::json!(AccumulatedValue {
+                    n: (value_vec.len() + 1) as u32,
+                    v: v.clone(),
+                }));
             }
+        } else if let serde_json::Value::Object(json_obj_borrowed) = v {
+            let nested_target = target
+                .entry(k)
+                .or_insert_with(|| serde_json::Value::Object(json_obj_borrowed.to_owned()));
+
+            if let serde_json::Value::Object(ref mut iv) = nested_target {
+                copy_and_accumulate(json_obj_borrowed, iv);
+            }
+        } else {
+            target.entry(k).or_insert_with(|| v.clone());
         }
     }
 }
@@ -242,30 +257,28 @@ fn scan_accumulations(
 fn compose_emails(email_entries: &EmailEntries) -> Vec<ComposedEmail> {
     let mut composed_emails = Vec::new();
 
-    for (_, entries) in email_entries {
+    for entries in email_entries.values() {
         let first_entry = entries
-            .iter()
-            .nth(0)
+            .get(0)
             .expect("The vector was created empty when inserted to the map.");
+
+        // println!("first_entry = {first_entry:#?}");
 
         let email = first_entry.email.clone();
 
-        let mut context = first_entry.context.clone();
-
-        let mut accumulation_values: HashMap<String, Vec<AccumulatedValue>> = HashMap::new();
+        let mut final_context = first_entry.context.clone();
 
         for entry in entries {
             // TODO: Compose / Mutate context
 
-            let local_context = &entry.context;
-            scan_accumulations(local_context, &mut accumulation_values);
+            let entry_context = &entry.context;
+            // scan_accumulations(entry_context, &mut accumulation_values);
+            copy_and_accumulate(entry_context, &mut final_context);
         }
-
-        // TODO: Replace Values using `accumulation_values`
 
         let composed_email = ComposedEmail {
             header: email,
-            context,
+            context: final_context,
         };
         composed_emails.push(composed_email);
     }
@@ -275,138 +288,14 @@ fn compose_emails(email_entries: &EmailEntries) -> Vec<ComposedEmail> {
 fn main() -> anyhow::Result<()> {
     let entries_pool = load_files();
     let emails_map = map_emails(entries_pool); // Each E-Mail ID with its E-mail contents, in order
-    println!("Debug Emails: {emails_map:#?}");
 
-    // TODO: 1. Build the structure around E-mail details by ID
-    // TODO: 2. Merge `Accumulated` for the Vec of each E-mail ID
+    // println!("Debug Emails: {emails_map:#?}");
+
+    let res = compose_emails(&emails_map);
+
+    println!("res = {res:#?}");
 
     // https://stackoverflow.com/questions/65356683/how-to-mutate-serde-json-value-by-adding-additional-fields
-    // pub fn merge(v: &Value, fields: &HashMap<String, String>) -> Value {
-    //     match v {
-    //         Value::Object(m) => {
-    //             let mut m = m.clone();
-    //             for (k, v) in fields {
-    //                 m.insert(k.clone(), Value::String(v.clone()));
-    //             }
-    //             Value::Object(m)
-    //         }
-    //         v => v.clone(),
-    //     }
-    // }
-
-    // let mut entry_1_value: serde_json::Value = serde_json::from_str(entry_1).expect("msg");
-    // let mut entry_2_value: serde_json::Value = serde_json::from_str(entry_2).expect("msg");
-    // let template = entry_1_value["template"].take();
-
-    // println!("{template:#}");
-    // println!("{}", template["instructions"]);
-
-    // let entry_1 = entries::Entry::try_from(&entry_1_value)?;
-    // let entry_2 = entries::Entry::try_from(&entry_2_value)?;
-
-    // assert_eq!(entry_1.email.id.0, entry_2.email.id.0);
-
-    // println!("{entry_1:#?}");
-
-    // let entry = entries::Entry::try_from(&entry_1_value)?;
-    // println!("{entry:#?}");
-
-    let mut replacements = HashMap::<&str, Vec<AccumulatedValue>>::new();
-
-    let t = HashMap::<Vec<&'static str>, &'static str>::new();
-    fn scan_accumulations_into<'json_entry>(
-        object_value: &'json_entry serde_json::Map<String, serde_json::Value>,
-        replacements: &mut HashMap<&'json_entry str, Vec<AccumulatedValue>>,
-    ) {
-        for (key, value) in object_value {
-            if key.starts_with('+') {
-                let value_vec = replacements.entry(key).or_insert_with(Vec::new);
-
-                value_vec.push(AccumulatedValue {
-                    n: (value_vec.len() + 1) as u32,
-                    v: value.clone(),
-                });
-            } else if let Some(object) = value.as_object() {
-                scan_accumulations_into(object, replacements);
-            }
-        }
-    }
-
-    // scan_accumulations_into(template.as_object().unwrap(), &mut replacements);
-    // scan_accumulations_into(template.as_object().unwrap(), &mut replacements);
-
-    println!("Replacement:\n{replacements:#?}");
-
-    // let t = serde_json::to_value(replacements.get("+entries").unwrap())
-    //     .expect("Failed to create value XD");
-
-    // println!("\n\n\n{t:#}");
-
-    // let acc_object: serde_json::Value = serde_json::Value::Object(())
-    // let acc_value: serde_json::Value = serde_json::Value::Object(Map<String, Value>);
-    // let test_value: serde_json::Value = AccumulatedValue {
-    //     idx: todo!(),
-    //     items: todo!(),
-    // }
-    // .into();
-
-    // fn scan_map(
-    //     object_value: &serde_json::Map<String, serde_json::Value>,
-    //     target_object: &mut serde_json::Map<String, serde_json::Value>,
-    // ) {
-    //     for (key, value) in object_value {
-    //         let v = match value {
-    //             serde_json::Value::Null => todo!(),
-    //             serde_json::Value::Bool(_) => todo!(),
-    //             serde_json::Value::Number(_) => todo!(),
-    //             serde_json::Value::String(_) => todo!(),
-    //             serde_json::Value::Array(v) => {
-    //                 for i in v {
-    //                     // scan_map(i, target_object)
-    //                 }
-    //                 todo!()
-    //             }
-    //             serde_json::Value::Object(m) => scan_map(m, target_object),
-    //         };
-    //         println!("Cloning key {key} = {v:?}\n");
-    //         target_object.insert(key.clone(), v);
-
-    //         if let serde_json::Value::Object(m) = value {
-    //             scan_map(m, target_object)
-    //         }
-    //         target_object.insert(key.clone(), value.clone());
-    //     }
-
-    // fn process_value(
-    //     value: &serde_json::Value,
-    //     target_object: &mut serde_json::Map<String, serde_json::Value>,
-    // ) {
-    //     match value {
-    //         serde_json::Value::Null => todo!(),
-    //         serde_json::Value::Bool(_) => todo!(),
-    //         serde_json::Value::Number(_) => todo!(),
-    //         serde_json::Value::String(_) => todo!(),
-    //         serde_json::Value::Array(v) => {
-    //             for i in v {
-    //                 process_value(i, target_object)
-    //             }
-    //         }
-    //         serde_json::Value::Object(m) => {
-    //             for (k, v) in m {
-    //                 // TODO: Check for `+`
-    //                 process_value(v, target_object)
-    //             }
-    //         }
-    //     }
-    // }
-
-    // let map_val = serde_json::to_value(emails_map).unwrap();
-    // if let serde_json::Value::Object(m) = map_val {
-    //     let mut new_map = serde_json::Map::new();
-    //     scan_map(&m, &mut new_map);
-    // }
-
-    // let _ = copy_map();
 
     Ok(())
 }
