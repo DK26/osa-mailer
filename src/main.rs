@@ -58,204 +58,235 @@ impl Entry {
     }
 }
 
+struct RawEntry {
+    name: String,
+    raw: String,
+}
+
+fn parse_entities(
+    entries: &Vec<RawEntry>,
+    parsed_entries: &mut Vec<Entry>,
+    parse_errors: &mut Vec<(String, serde_json::Error)>,
+) {
+    for entry in entries {
+        match serde_json::from_str::<Entry>(&entry.raw) {
+            Ok(v) => parsed_entries.push(v),
+            Err(e) => parse_errors.push((entry.name.clone(), e)),
+        }
+    }
+}
+
 fn load_files() -> Vec<Entry> {
-    let entry_1 = r#"
-    {
-        "id": "50bf9e7e",
-        "utc": "2022-09-01T22:44:11.852662+00:00",
-        "notify_error": [
-            "Developers <dev-team@somemail.com>"
-        ],
-        "email": {
-            "system": "MyExternalSystem",
-            "subsystem": "[ID:12345] Trigger: Server Disk Out-of-Space",
-            "from": "Mail System <tech-support@somemail.com>",
-            "to": [
-                "Rick S. <someone@somemail.com>"
+    let entry_1 = RawEntry {
+        name: "entry_1".to_string(),
+        raw: r#"
+        {
+            "id": "50bf9e7e",
+            "utc": "2022-09-01T22:44:11.852662+00:00",
+            "notify_error": [
+                "Developers <dev-team@somemail.com>"
             ],
-            "cc": [],
-            "bcc": [],
-            "reply_to": [
-                "System Admin <admin@somemail.com>",
-                "Project Lead <lead@somemail.com>"
-            ],
-            "subject": "Warning: Your server's disk is out-of-space",
-            "template": "ops_department",
-            "alternative_content": "Unable to render HTML. Please refer to the Ops department for details.",
-            "attachments": [
-                "guides/disk-capacity-guidelines.pdf"
-            ],
-            "custom_key": ""
-        },
-        "context": {
-            "message": {
-                "head": "Detected Problems in Your Server",
-                "body": "We have detected a disk capacity problem with one or more of your servers. Please refer to the instructions below"
+            "email": {
+                "system": "MyExternalSystem",
+                "subsystem": "[ID:12345] Trigger: Server Disk Out-of-Space",
+                "from": "Mail System <tech-support@somemail.com>",
+                "to": [
+                    "Rick S. <someone@somemail.com>"
+                ],
+                "cc": [],
+                "bcc": [],
+                "reply_to": [
+                    "System Admin <admin@somemail.com>",
+                    "Project Lead <lead@somemail.com>"
+                ],
+                "subject": "Warning: Your server's disk is out-of-space",
+                "template": "ops_department",
+                "alternative_content": "Unable to render HTML. Please refer to the Ops department for details.",
+                "attachments": [
+                    "guides/disk-capacity-guidelines.pdf"
+                ],
+                "custom_key": ""
             },
-            "table": {
-                "type": 1,
-                "+entries": [
-                    {
-                        "idx": 1,
-                        "label": "Hostname",
-                        "value": "MailServer01"
-                    },
-                    {
-                        "idx": 2,
-                        "label": "IP Address",
-                        "value": "192.168.0.1"
-                    },
-                    {
-                        "idx": 3,
-                        "label": "Disk Capacity Percentage",
-                        "value": 95
-                    }
-                ]
-            },
-            "+dummy": 1,
-            "instructions": [
-                "Remove unused software",
-                "Delete temporary files",
-                "Use a drive-cleaner application",
-                "Add additional hard-drive"
-            ],
-            "motd": "We are very excited to inform you about our new project that allows you to time-travel. Please refer the web-site below to find out more"
-        }
-    }"#;
+            "context": {
+                "message": {
+                    "head": "Detected Problems in Your Server",
+                    "body": "We have detected a disk capacity problem with one or more of your servers. Please refer to the instructions below"
+                },
+                "table": {
+                    "type": 1,
+                    "+entries": [
+                        {
+                            "idx": 1,
+                            "label": "Hostname",
+                            "value": "MailServer01"
+                        },
+                        {
+                            "idx": 2,
+                            "label": "IP Address",
+                            "value": "192.168.0.1"
+                        },
+                        {
+                            "idx": 3,
+                            "label": "Disk Capacity Percentage",
+                            "value": 95
+                        }
+                    ]
+                },
+                "+dummy": 1,
+                "instructions": [
+                    "Remove unused software",
+                    "Delete temporary files",
+                    "Use a drive-cleaner application",
+                    "Add additional hard-drive"
+                ],
+                "motd": "We are very excited to inform you about our new project that allows you to time-travel. Please refer the web-site below to find out more"
+            }
+        }"#.to_string()
+    };
 
-    let entry_2 = r#"
-    {
-        "id": "50bf9e7zz",
-        "utc": "2022-09-01T22:44:09.302646+00:00",
-        "notify_error": [
-            "Developers <dev-team@somemail.com>"
-        ],
-        "email": {
-            "system": "MyExternalSystem",
-            "subsystem": "[ID:12345] Trigger: Server Disk Out-of-Space",
-            "from": "Mail System <tech-support@somemail.com>",
-            "to": [
-                "Rick S. <someone@somemail.com>"
+    let entry_2 = RawEntry {
+        name: "entry_2".to_string(),
+        raw: r#"
+        {
+            "id": "50bf9e7zz",
+            "utc": "2022-09-01T22:44:09.302646+00:00",
+            "notify_error": [
+                "Developers <dev-team@somemail.com>"
             ],
-            "cc": [],
-            "bcc": [],
-            "reply_to": [
-                "System Admin <admin@somemail.com>",
-                "Project Lead <lead@somemail.com>"
-            ],
-            "subject": "Warning: Your server's disk is out-of-space",
-            "template": "ops_department",
-            "alternative_content": "Unable to render HTML. Please refer to the Ops department for details.",
-            "attachments": [
-                "guides/disk-capacity-guidelines.pdf"
-            ],
-            "custom_key": ""
-        },
-        "context": {
-            "message": {
-                "head": "Detected Problems in Your Server",
-                "body": "We have detected a disk capacity problem with one or more of your servers. Please refer to the instructions below"
+            "email": {
+                "system": "MyExternalSystem",
+                "subsystem": "[ID:12345] Trigger: Server Disk Out-of-Space",
+                "from": "Mail System <tech-support@somemail.com>",
+                "to": [
+                    "Rick S. <someone@somemail.com>"
+                ],
+                "cc": [],
+                "bcc": [],
+                "reply_to": [
+                    "System Admin <admin@somemail.com>",
+                    "Project Lead <lead@somemail.com>"
+                ],
+                "subject": "Warning: Your server's disk is out-of-space",
+                "template": "ops_department",
+                "alternative_content": "Unable to render HTML. Please refer to the Ops department for details.",
+                "attachments": [
+                    "guides/disk-capacity-guidelines.pdf"
+                ],
+                "custom_key": ""
             },
-            "table": {
-                "type": 1,
-                "+entries": [
-                    {
-                        "idx": 1,
-                        "label": "Hostname",
-                        "value": "MailServer02"
-                    },
-                    {
-                        "idx": 2,
-                        "label": "IP Address",
-                        "value": "192.168.0.2"
-                    },
-                    {
-                        "idx": 3,
-                        "label": "Disk Capacity Percentage",
-                        "value": 87
-                    }
-                ]
-            },
-            "+dummy": 2,
-            "instructions": [
-                "Remove unused software",
-                "Delete temporary files",
-                "Use a drive-cleaner application",
-                "Add additional hard-drive"
-            ],
-            "motd": "We are very excited to inform you about our new project that allows you to time-travel. Please refer the web-site below to find out more"
-        }
-    }"#;
+            "context": {
+                "message": {
+                    "head": "Detected Problems in Your Server",
+                    "body": "We have detected a disk capacity problem with one or more of your servers. Please refer to the instructions below"
+                },
+                "table": {
+                    "type": 1,
+                    "+entries": [
+                        {
+                            "idx": 1,
+                            "label": "Hostname",
+                            "value": "MailServer02"
+                        },
+                        {
+                            "idx": 2,
+                            "label": "IP Address",
+                            "value": "192.168.0.2"
+                        },
+                        {
+                            "idx": 3,
+                            "label": "Disk Capacity Percentage",
+                            "value": 87
+                        }
+                    ]
+                },
+                "+dummy": 2,
+                "instructions": [
+                    "Remove unused software",
+                    "Delete temporary files",
+                    "Use a drive-cleaner application",
+                    "Add additional hard-drive"
+                ],
+                "motd": "We are very excited to inform you about our new project that allows you to time-travel. Please refer the web-site below to find out more"
+            }
+        }"#.to_string()
+    };
 
-    let entry_3 = r#"
-    {
-        "id": "50bf9e7zzv",
-        "utc": "2022-09-01T22:44:10.302646+00:00",
-        "notify_error": [
-            "Developers <dev-team@somemail.com>"
-        ],
-        "email": {
-            "system": "MyExternalSystem",
-            "subsystem": "[ID:12345] Trigger: Server Disk Out-of-Space",
-            "from": "Mail System <tech-support@somemail.com>",
-            "to": [
-                "Dave. K <dikaveman@somemail.com>"
+    let entry_3 = RawEntry {
+        name: "entry_3".to_string(),
+        raw: r#"
+        {
+            "id": "50bf9e7zzv",
+            "utc": "2022-09-01T22:44:10.302646+00:00",
+            "notify_error": [
+                "Developers <dev-team@somemail.com>"
             ],
-            "cc": [],
-            "bcc": [],
-            "reply_to": [
-                "System Admin <admin@somemail.com>",
-                "Project Lead <lead@somemail.com>"
-            ],
-            "subject": "Warning: Your server's disk is out-of-space",
-            "template": "ops_department",
-            "alternative_content": "Unable to render HTML. Please refer to the Ops department for details.",
-            "attachments": [
-                "guides/disk-capacity-guidelines.pdf"
-            ],
-            "custom_key": ""
-        },
-        "context": {
-            "message": {
-                "head": "Detected Problems in Your Server",
-                "body": "We have detected a disk capacity problem with one or more of your servers. Please refer to the instructions below"
+            "email": {
+                "system": "MyExternalSystem",
+                "subsystem": "[ID:12345] Trigger: Server Disk Out-of-Space",
+                "from": "Mail System <tech-support@somemail.com>",
+                "to": [
+                    "Dave. K <dikaveman@somemail.com>"
+                ],
+                "cc": [],
+                "bcc": [],
+                "reply_to": [
+                    "System Admin <admin@somemail.com>",
+                    "Project Lead <lead@somemail.com>"
+                ],
+                "subject": "Warning: Your server's disk is out-of-space",
+                "template": "ops_department",
+                "alternative_content": "Unable to render HTML. Please refer to the Ops department for details.",
+                "attachments": [
+                    "guides/disk-capacity-guidelines.pdf"
+                ],
+                "custom_key": ""
             },
-            "table": {
-                "type": 1,
-                "+entries": [
-                    {
-                        "idx": 1,
-                        "label": "Hostname",
-                        "value": "GameServer01"
-                    },
-                    {
-                        "idx": 2,
-                        "label": "IP Address",
-                        "value": "172.14.0.2"
-                    },
-                    {
-                        "idx": 3,
-                        "label": "Disk Capacity Percentage",
-                        "value": 99
-                    }
-                ]
-            },
-            "+dummy": 2,
-            "instructions": [
-                "Remove unused software",
-                "Delete temporary files",
-                "Use a drive-cleaner application",
-                "Add additional hard-drive"
-            ],
-            "motd": "We are very excited to inform you about our new project that allows you to time-travel. Please refer the web-site below to find out more"
-        }
-    }"#;
+            "context": {
+                "message": {
+                    "head": "Detected Problems in Your Server",
+                    "body": "We have detected a disk capacity problem with one or more of your servers. Please refer to the instructions below"
+                },
+                "table": {
+                    "type": 1,
+                    "+entries": [
+                        {
+                            "idx": 1,
+                            "label": "Hostname",
+                            "value": "GameServer01"
+                        },
+                        {
+                            "idx": 2,
+                            "label": "IP Address",
+                            "value": "172.14.0.2"
+                        },
+                        {
+                            "idx": 3,
+                            "label": "Disk Capacity Percentage",
+                            "value": 99
+                        }
+                    ]
+                },
+                "+dummy": 2,
+                "instructions": [
+                    "Remove unused software",
+                    "Delete temporary files",
+                    "Use a drive-cleaner application",
+                    "Add additional hard-drive"
+                ],
+                "motd": "We are very excited to inform you about our new project that allows you to time-travel. Please refer the web-site below to find out more"
+            }
+        }"#.to_string()
+    };
 
-    vec![
-        serde_json::from_str(entry_1).unwrap(),
-        serde_json::from_str(entry_2).unwrap(),
-        serde_json::from_str(entry_3).unwrap(),
-    ]
+    let raw_entries = vec![entry_1, entry_2, entry_3];
+
+    let mut result = Vec::new();
+    let mut errors = Vec::new();
+
+    parse_entities(&raw_entries, &mut result, &mut errors);
+
+    eprintln!("Detected Errors: {errors:#?}");
+    result
 }
 
 type EmailEntries = HashMap<u32, Vec<Entry>>;
