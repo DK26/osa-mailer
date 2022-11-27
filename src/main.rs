@@ -3,13 +3,19 @@
 mod entries;
 mod errors;
 
-use std::collections::HashMap;
+use std::{collections::HashMap, path::Path};
 
 use entries::crc32_iso_hdlc_checksum;
 use errors::EntryError;
 use serde::{Deserialize, Serialize};
+use std::env;
+use std::fs;
 
 use chrono::{DateTime, FixedOffset};
+use walkdir::{DirEntry, WalkDir};
+
+const ENTRY_DIR: &str = "entries";
+const ENTRY_EXT: &str = ".json";
 
 #[derive(Serialize, Debug)]
 struct AccumulatedValue {
@@ -58,235 +64,79 @@ impl Entry {
     }
 }
 
-struct RawEntry {
-    name: String,
-    raw: String,
+#[derive(Debug, Clone)]
+struct EntryContent {
+    id: String,
+    content: String,
+}
+
+#[derive(Debug)]
+struct EntryParseError {
+    entry_content: EntryContent,
+    error: serde_json::Error,
 }
 
 fn parse_entities(
-    entries: &Vec<RawEntry>,
+    entries: &Vec<EntryContent>,
     parsed_entries: &mut Vec<Entry>,
-    parse_errors: &mut Vec<(String, serde_json::Error)>,
+    parse_errors: &mut Vec<EntryParseError>,
 ) {
     for entry in entries {
-        match serde_json::from_str::<Entry>(&entry.raw) {
+        match serde_json::from_str::<Entry>(&entry.content) {
             Ok(v) => parsed_entries.push(v),
-            Err(e) => parse_errors.push((entry.name.clone(), e)),
+            Err(e) => parse_errors.push(EntryParseError {
+                entry_content: entry.clone(),
+                error: e,
+            }),
         }
     }
 }
 
-fn load_files() -> Vec<Entry> {
-    let entry_1 = RawEntry {
-        name: "entry_1".to_string(),
-        raw: r#"
-        {
-            "id": "50bf9e7e",
-            "utc": "2022-09-01T22:44:11.852662+00:00",
-            "notify_error": [
-                "Developers <dev-team@somemail.com>"
-            ],
-            "email": {
-                "system": "MyExternalSystem",
-                "subsystem": "[ID:12345] Trigger: Server Disk Out-of-Space",
-                "from": "Mail System <tech-support@somemail.com>",
-                "to": [
-                    "Rick S. <someone@somemail.com>"
-                ],
-                "cc": [],
-                "bcc": [],
-                "reply_to": [
-                    "System Admin <admin@somemail.com>",
-                    "Project Lead <lead@somemail.com>"
-                ],
-                "subject": "Warning: Your server's disk is out-of-space",
-                "template": "ops_department",
-                "alternative_content": "Unable to render HTML. Please refer to the Ops department for details.",
-                "attachments": [
-                    "guides/disk-capacity-guidelines.pdf"
-                ],
-                "custom_key": ""
-            },
-            "context": {
-                "message": {
-                    "head": "Detected Problems in Your Server",
-                    "body": "We have detected a disk capacity problem with one or more of your servers. Please refer to the instructions below"
-                },
-                "table": {
-                    "type": 1,
-                    "+entries": [
-                        {
-                            "idx": 1,
-                            "label": "Hostname",
-                            "value": "MailServer01"
-                        },
-                        {
-                            "idx": 2,
-                            "label": "IP Address",
-                            "value": "192.168.0.1"
-                        },
-                        {
-                            "idx": 3,
-                            "label": "Disk Capacity Percentage",
-                            "value": 95
-                        }
-                    ]
-                },
-                "+dummy": 1,
-                "instructions": [
-                    "Remove unused software",
-                    "Delete temporary files",
-                    "Use a drive-cleaner application",
-                    "Add additional hard-drive"
-                ],
-                "motd": "We are very excited to inform you about our new project that allows you to time-travel. Please refer the web-site below to find out more"
-            }
-        }"#.to_string()
-    };
+fn is_entry(entry: &DirEntry, extension: &str) -> bool {
+    entry
+        .file_name()
+        .to_str()
+        .map(|s| s.to_lowercase().ends_with(extension))
+        .unwrap_or(false)
+}
 
-    let entry_2 = RawEntry {
-        name: "entry_2".to_string(),
-        raw: r#"
-        {
-            "id": "50bf9e7zz",
-            "utc": "2022-09-01T22:44:09.302646+00:00",
-            "notify_error": [
-                "Developers <dev-team@somemail.com>"
-            ],
-            "email": {
-                "system": "MyExternalSystem",
-                "subsystem": "[ID:12345] Trigger: Server Disk Out-of-Space",
-                "from": "Mail System <tech-support@somemail.com>",
-                "to": [
-                    "Rick S. <someone@somemail.com>"
-                ],
-                "cc": [],
-                "bcc": [],
-                "reply_to": [
-                    "System Admin <admin@somemail.com>",
-                    "Project Lead <lead@somemail.com>"
-                ],
-                "subject": "Warning: Your server's disk is out-of-space",
-                "template": "ops_department",
-                "alternative_content": "Unable to render HTML. Please refer to the Ops department for details.",
-                "attachments": [
-                    "guides/disk-capacity-guidelines.pdf"
-                ],
-                "custom_key": ""
-            },
-            "context": {
-                "message": {
-                    "head": "Detected Problems in Your Server",
-                    "body": "We have detected a disk capacity problem with one or more of your servers. Please refer to the instructions below"
-                },
-                "table": {
-                    "type": 1,
-                    "+entries": [
-                        {
-                            "idx": 1,
-                            "label": "Hostname",
-                            "value": "MailServer02"
-                        },
-                        {
-                            "idx": 2,
-                            "label": "IP Address",
-                            "value": "192.168.0.2"
-                        },
-                        {
-                            "idx": 3,
-                            "label": "Disk Capacity Percentage",
-                            "value": 87
-                        }
-                    ]
-                },
-                "+dummy": 2,
-                "instructions": [
-                    "Remove unused software",
-                    "Delete temporary files",
-                    "Use a drive-cleaner application",
-                    "Add additional hard-drive"
-                ],
-                "motd": "We are very excited to inform you about our new project that allows you to time-travel. Please refer the web-site below to find out more"
-            }
-        }"#.to_string()
-    };
+/// The results of parsing the entry files
+#[derive(Debug)]
+struct EntryParseResults {
+    ok: Vec<Entry>,
+    err: Vec<EntryParseError>,
+}
 
-    let entry_3 = RawEntry {
-        name: "entry_3".to_string(),
-        raw: r#"
-        {
-            "id": "50bf9e7zzv",
-            "utc": "2022-09-01T22:44:10.302646+00:00",
-            "notify_error": [
-                "Developers <dev-team@somemail.com>"
-            ],
-            "email": {
-                "system": "MyExternalSystem",
-                "subsystem": "[ID:12345] Trigger: Server Disk Out-of-Space",
-                "from": "Mail System <tech-support@somemail.com>",
-                "to": [
-                    "Dave. K <dikaveman@somemail.com>"
-                ],
-                "cc": [],
-                "bcc": [],
-                "reply_to": [
-                    "System Admin <admin@somemail.com>",
-                    "Project Lead <lead@somemail.com>"
-                ],
-                "subject": "Warning: Your server's disk is out-of-space",
-                "template": "ops_department",
-                "alternative_content": "Unable to render HTML. Please refer to the Ops department for details.",
-                "attachments": [
-                    "guides/disk-capacity-guidelines.pdf"
-                ],
-                "custom_key": ""
-            },
-            "context": {
-                "message": {
-                    "head": "Detected Problems in Your Server",
-                    "body": "We have detected a disk capacity problem with one or more of your servers. Please refer to the instructions below"
-                },
-                "table": {
-                    "type": 1,
-                    "+entries": [
-                        {
-                            "idx": 1,
-                            "label": "Hostname",
-                            "value": "GameServer01"
-                        },
-                        {
-                            "idx": 2,
-                            "label": "IP Address",
-                            "value": "172.14.0.2"
-                        },
-                        {
-                            "idx": 3,
-                            "label": "Disk Capacity Percentage",
-                            "value": 99
-                        }
-                    ]
-                },
-                "+dummy": 2,
-                "instructions": [
-                    "Remove unused software",
-                    "Delete temporary files",
-                    "Use a drive-cleaner application",
-                    "Add additional hard-drive"
-                ],
-                "motd": "We are very excited to inform you about our new project that allows you to time-travel. Please refer the web-site below to find out more"
-            }
-        }"#.to_string()
-    };
+fn load_entries<P: AsRef<Path>>(dir: P, extension: &str) -> EntryParseResults {
+    let mut raw_entries = Vec::new();
+    for entry in WalkDir::new(dir)
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .filter(|e| is_entry(e, extension))
+    {
+        let entry_content = fs::read_to_string(entry.path());
 
-    let raw_entries = vec![entry_1, entry_2, entry_3];
+        match entry_content {
+            Ok(v) => {
+                raw_entries.push(EntryContent {
+                    id: entry.path().display().to_string(),
+                    content: v,
+                });
+                let _ = fs::remove_file(entry.path());
+            }
+            Err(_) => continue,
+        }
+    }
 
     let mut result = Vec::new();
     let mut errors = Vec::new();
 
     parse_entities(&raw_entries, &mut result, &mut errors);
 
-    eprintln!("Detected Errors: {errors:#?}");
-    result
+    EntryParseResults {
+        ok: result,
+        err: errors,
+    }
 }
 
 type EmailEntries = HashMap<u32, Vec<Entry>>;
@@ -378,7 +228,20 @@ fn compose_emails(email_entries: &EmailEntries) -> Vec<ComposedEmail> {
 }
 
 fn main() -> anyhow::Result<()> {
-    let entries_pool = load_files();
+    let current_exe =
+        env::current_exe().expect("Unable to get the current binary file from the OS.");
+    let current_exe_dir = current_exe
+        .parent()
+        .expect("Unable to get current binary file directory");
+
+    let entries_path = current_exe_dir.join(ENTRY_DIR);
+
+    let entry_parse_results = load_entries(entries_path, ENTRY_EXT);
+
+    eprintln!("Entry parsing errors: {:?}", entry_parse_results.err);
+
+    let entries_pool = entry_parse_results.ok;
+
     let emails_map = map_emails(entries_pool); // Each E-Mail ID with its E-mail contents, in order
 
     let res = compose_emails(&emails_map);

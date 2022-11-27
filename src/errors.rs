@@ -11,4 +11,11 @@ pub enum EntryError {
 
     #[error("Wrong item type in array `{0}`")]
     WrongArrayItem(&'static str),
+
+    #[error("Failed to parse the entry `{id}`:\n{content})\n{error}")]
+    ParsingFailure {
+        id: String,
+        content: String,
+        error: serde_json::Error,
+    },
 }
