@@ -1,0 +1,33 @@
+<!--TEMPLATE tera-->
+<!--Tera Tutorial: https://tera.netlify.app/docs/#templates-->
+<!--Tera Supported Time Formats: https://docs.rs/chrono/0.4.19/chrono/format/strftime/index.html-->
+<!DOCTYPE html>
+<HTML>
+
+<BODY>
+    <H1>{{ message.head }}</H1>
+    <HR>
+    {{ message.body }}
+    <HR>
+    <BR> Jerusalem Time: <I>{{ now() | date(format="%Y-%m-%d %H:%M:%S", timezone="Asia/Jerusalem") }}</I>
+    <BR> Berlin Time: <I>{{ now() | date(format="%Y-%m-%d %H:%M:%S", timezone="Europe/Berlin") }}</I>
+    <HR>
+    <BR>Instructions:<BR>
+    {% for inst in instructions %}
+    {{ inst }} <BR>
+    {% endfor %}
+    <BR>Message of the day:
+    <BR> {{ motd }}
+    <HR>
+    <H2>Table</H2>
+    <BR>
+    {% for entry in table.entries %}
+    {% for item in entry.value %}
+
+    <U>ITEM: {{ item.value }}</U>
+
+    {% endfor %}
+    {% endfor %}
+</BODY>
+
+</HTML>

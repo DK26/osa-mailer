@@ -1,0 +1,60 @@
+{
+    "id": "39e01598",
+    "utc": "2022-09-08T11:52:22.455720+00:00",
+    "notify_error": [
+        "Developers <dev-team@somemail.com>"
+    ],
+    "email": {
+        "system": "MyExternalSystem",
+        "subsystem": "[ID:12345] Trigger: Server Disk Out-of-Space",
+        "from": "Mail System <tech-support@somemail.com>",
+        "to": [
+            "Rick S. <someone@somemail.com>"
+        ],
+        "cc": [],
+        "bcc": [],
+        "reply_to": [
+            "System Admin <admin@somemail.com>",
+            "Project Lead <lead@somemail.com>"
+        ],
+        "subject": "Warning: Your server's disk is out-of-space",
+        "template": "ops_department",
+        "alternative_content": "Unable to render HTML. Please refer to the Ops department for details.",
+        "attachments": [
+            "guides/disk-capacity-guidelines.pdf"
+        ],
+        "custom_key": ""
+    },
+    "context": {
+        "message": {
+            "head": "Detected Problems in Your Server",
+            "body": "We have detected a disk capacity problem with one or more of your servers. Please refer to the instructions below"
+        },
+        "table": {
+            "+entries": [
+                {
+                    "idx": 1,
+                    "label": "Hostname",
+                    "value": "MailServer01"
+                },
+                {
+                    "idx": 2,
+                    "label": "IP Address",
+                    "value": "192.168.0.1"
+                },
+                {
+                    "idx": 3,
+                    "label": "Disk Capacity Percentage",
+                    "value": 95
+                }
+            ]
+        },
+        "instructions": [
+            "Remove unused software",
+            "Delete temporary files",
+            "Use a drive-cleaner application",
+            "Add additional hard-drive"
+        ],
+        "motd": "We are very excited to inform you about our new project that allows you to time-travel. Please refer the web-site below to find out more"
+    }
+}

@@ -42,26 +42,26 @@ struct AccumulatedValue {
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
-struct Email {
-    system: String,
-    subsystem: String,
-    from: String,
-    to: Vec<String>,
-    cc: Vec<String>,
-    bcc: Vec<String>,
-    reply_to: Vec<String>,
-    subject: String,
-    template: String,
-    alternative_content: String,
-    attachments: Vec<String>,
-    custom_key: String,
+pub(crate) struct Email {
+    pub(crate) system: String,
+    pub(crate) subsystem: String,
+    pub(crate) from: String,
+    pub(crate) to: Vec<String>,
+    pub(crate) cc: Vec<String>,
+    pub(crate) bcc: Vec<String>,
+    pub(crate) reply_to: Vec<String>,
+    pub(crate) subject: String,
+    pub(crate) template: String,
+    pub(crate) alternative_content: String,
+    pub(crate) attachments: Vec<String>,
+    pub(crate) custom_key: String,
 }
 
 /// A Composed E-mail is one that has all of its context gathered and ordered.
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub(crate) struct ComposedEmail {
-    header: Email,
-    context: serde_json::Map<String, serde_json::Value>,
+    pub(crate) header: Email,
+    pub(crate) context: serde_json::Map<String, serde_json::Value>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
