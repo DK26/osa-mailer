@@ -2,6 +2,7 @@
 extern crate lazy_static;
 
 use anyhow::{anyhow, Context, Result};
+use secstr::SecUtf8;
 use std::{env, fs, rc::Rc};
 
 use crate::render::{ContextData, TemplateData};
@@ -11,6 +12,7 @@ use crate::render::{ContextData, TemplateData};
 mod entries;
 mod errors;
 mod render;
+mod send;
 
 const ENTRY_DIR: &str = "entries";
 const ENTRY_EXT: &str = ".json";
@@ -18,10 +20,10 @@ const TEMPLATE_DIR: &str = "templates";
 
 fn main() -> anyhow::Result<()> {
     let current_exe =
-        env::current_exe().expect("Unable to get the current binary file from the OS.");
+        env::current_exe().context("Unable to get the current binary file from the OS.")?;
     let current_exe_dir = current_exe
         .parent()
-        .expect("Unable to get current binary file directory");
+        .context("Unable to get current binary file directory")?;
 
     let entries_path = current_exe_dir.join(ENTRY_DIR);
 
@@ -35,17 +37,24 @@ fn main() -> anyhow::Result<()> {
 
     let composed_emails = entries::compose_emails(&emails_map);
 
-    // println!("composed_emails = {composed_emails:#?}");
+    println!(
+        "composed_emails = {}",
+        serde_json::to_string_pretty(&composed_emails).unwrap()
+    );
 
     let templates_path = current_exe_dir.join(TEMPLATE_DIR);
 
-    for email in composed_emails {
-        let email_template_path: render::AbsolutePath = templates_path
-            .join(&email.header.template)
-            .join("template.html")
-            .into();
+    // TODO: Make static and use CLI ARGUMENTS instead
+    let server = env::var("SERVER").unwrap_or_default();
+    let port: u16 = env::var("PORT")
+        .unwrap_or_else(|_| "25".to_string())
+        .parse()?;
 
-        let template_context = &email.context;
+    for email in composed_emails {
+        let email_template_images_root = templates_path.join(&email.header.template);
+
+        let email_template_path: render::AbsolutePath =
+            email_template_images_root.join("template.html").into();
 
         let template_data = TemplateData {
             contents: {
@@ -60,8 +69,10 @@ fn main() -> anyhow::Result<()> {
             file_path: { Some(&email_template_path) },
         };
 
+        // let template_context = &email.context;
+
         let context_data = ContextData {
-            context: serde_json::Value::Object(template_context.clone()),
+            context: serde_json::Value::Object(email.context.clone()),
             file_path: None,
         };
 
@@ -75,8 +86,34 @@ fn main() -> anyhow::Result<()> {
         match rendered_template_result {
             Ok(rendered_template) => {
                 let html_payload = rendered_template.0.clone();
-                println!("Rendered Template: \n{html_payload}");
+
+                let to = email.header.to.join(", ");
+                let cc = email.header.cc.join(", ");
+                let bcc = email.header.bcc.join(", ");
+                let reply_to = email.header.reply_to.join(", ");
+                let attachments = email.header.attachments.join(", ");
+
                 // TODO: Send E-mail
+                let message = send::Message::new()
+                    .from(&email.header.from)
+                    .to_addresses(&to)
+                    .cc_addresses(&cc)
+                    .bcc_addresses(&bcc)
+                    .reply_to_addresses(&reply_to)
+                    .subject(&email.header.subject)
+                    .alternative_content(&email.header.alternative_content)
+                    .content(&html_payload, Some(&email_template_images_root))
+                    .attachments(&attachments);
+
+                let mut connection = send::Connection::new(&server, port);
+
+                let username: SecUtf8 = env::var("USERNAME").unwrap_or_default().into();
+                let password: SecUtf8 = env::var("PASSWORD").unwrap_or_default().into();
+                connection.establish(username, password);
+
+                // Lower privilege.
+                // let connection = connection;
+                connection.send(message.into());
             }
 
             Err(e) => {

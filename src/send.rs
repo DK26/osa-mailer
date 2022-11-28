@@ -1,8 +1,11 @@
 use lazy_static::lazy_static;
 
 use lettre::address::AddressError;
+use lettre::message::Message as LettreMessage;
 use lettre::message::{header, Attachment, Body, MessageBuilder, MultiPart, SinglePart};
+use lettre::{SmtpTransport, Transport};
 
+use lettre::transport::smtp::authentication::Credentials;
 use regex::Regex;
 use relative_path::RelativePath;
 use secstr::SecUtf8;
@@ -323,6 +326,176 @@ impl<'relay> SmtpConnectionBuilder<'relay> {
                 Some(duration) => duration,
                 None => Duration::from_secs(60),
             },
+        }
+    }
+}
+
+/// Contains all contents of an E-Mail to be sent later.
+#[derive(Debug, Default, Clone)]
+pub struct Message {
+    message_builder: MessageBuilder,
+    content: Option<MultiPart>,
+    alternative_content: Option<SinglePart>,
+    attachments: Option<MultiPart>,
+}
+
+impl Message {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn from(mut self, address: &str) -> Self {
+        self.message_builder = self.message_builder.from(address.parse().unwrap());
+        self
+    }
+
+    pub fn reply_to_addresses(mut self, address: &str) -> Self {
+        self.message_builder = self.message_builder.reply_to_addresses(address).unwrap();
+        self
+    }
+
+    pub fn in_reply_to(mut self, id: String) -> Self {
+        self.message_builder = self.message_builder.in_reply_to(id);
+        self
+    }
+
+    pub fn to_addresses(mut self, addresses: &str) -> Self {
+        self.message_builder = self.message_builder.to_addresses(addresses).unwrap();
+        self
+    }
+
+    pub fn cc_addresses(mut self, addresses: &str) -> Self {
+        self.message_builder = self.message_builder.cc_addresses(addresses).unwrap();
+        self
+    }
+
+    pub fn bcc_addresses(mut self, addresses: &str) -> Self {
+        self.message_builder = self.message_builder.bcc_addresses(addresses).unwrap();
+        self
+    }
+
+    pub fn subject(mut self, subject: &str) -> Self {
+        self.message_builder = self.message_builder.subject(subject);
+        self
+    }
+
+    pub fn content(mut self, content: &str, resources_path: Option<&Path>) -> Self {
+        self.content = Some(MultiPart::html_with_images(content, resources_path));
+        self
+    }
+
+    pub fn alternative_content(mut self, content: &str) -> Self {
+        self.alternative_content = Some(
+            SinglePart::builder()
+                .header(header::ContentType::TEXT_PLAIN)
+                .header(header::ContentTransferEncoding::Base64)
+                .body(content.to_owned()),
+        );
+        self
+    }
+
+    pub fn attachments(mut self, attachments: &str) -> Self {
+        self.attachments = Some(MultiPart::attachments(attachments));
+        self
+    }
+}
+
+impl std::convert::From<Message> for LettreMessage {
+    fn from(message: Message) -> Self {
+        let mut multipart: Option<MultiPart> = None;
+
+        if let Some(alternative_content) = message.alternative_content {
+            multipart = Some(MultiPart::alternative().singlepart(alternative_content));
+        }
+
+        if let Some(content) = message.content {
+            multipart = if let Some(parts) = multipart {
+                Some(parts.multipart(content))
+            } else {
+                Some(content)
+            };
+        }
+
+        if let Some(attachments) = message.attachments {
+            multipart = if let Some(parts) = multipart {
+                Some(MultiPart::mixed().multipart(parts).multipart(attachments))
+            } else {
+                Some(attachments)
+            };
+        }
+
+        message
+            .message_builder
+            .multipart(multipart.unwrap_or_else(|| {
+                MultiPart::mixed().singlepart(
+                    SinglePart::builder()
+                        .header(header::ContentType::TEXT_PLAIN)
+                        .body(String::new()), // Empty E-mail if not contents were given
+                )
+            }))
+            .unwrap()
+    }
+}
+
+#[derive(Debug)]
+pub enum ConnectionMode {
+    Once,
+    Service,
+}
+// struct Content<'a>(&'a str);
+// struct AlternativeContent<'a>(&'a str);
+// struct Attachments<'a>(&'a str);
+/// Establishes a connection and sends SMTP messages from its own thread (actor).
+/// Receiving Messages from a Messages Channel and sends them downstream to the connection.
+// #[derive(Debug)]
+pub struct Connection<'a> {
+    // Username/Password Method: TLS/Starttls/NoAuth
+    relay_server: &'a str,
+    port: u16,
+    // channel: (Sender<LettreMessage>, Receiver<LettreMessage>),
+    // tx: Option<Sender<LettreMessage>>,
+    // mode: ConnectionMode,
+    connection: Option<SmtpTransport>,
+}
+
+impl<'a> Connection<'a> {
+    pub fn new(relay_server: &'a str, port: u16) -> Self {
+        Self {
+            // credentials: Credentials::new(username, password), // TODO: Improve security:
+            relay_server,
+            port,
+            connection: None,
+        }
+    }
+
+    // fn job(&self) {
+    //     let rx = &self.rx;
+    //     println!("test");
+    // }
+
+    /// Establish the connection
+    pub fn establish(&mut self, username: SecUtf8, password: SecUtf8) {
+        let connection = SmtpTransport::relay(self.relay_server)
+            .unwrap()
+            .credentials(Credentials::new(
+                username.into_unsecure(),
+                password.into_unsecure(),
+            ))
+            .port(self.port) // TODO: Set all configurations: https://docs.rs/lettre/latest/lettre/transport/smtp/struct.SmtpTransportBuilder.html#method.port
+            .build();
+    }
+
+    /// Send a lettre Message object downstream
+    pub fn send(&self, msg: LettreMessage) {
+        // println!(
+        //     "Message: \n{}",
+        //     String::from_utf8(message.formatted()).unwrap()
+        // );
+
+        let connection = self.connection.as_ref().unwrap();
+        match connection.send(&msg) {
+            Ok(_) => println!("Email sent successfully!"),
+            Err(e) => panic!("Could not send email: {:?}", e),
         }
     }
 }
