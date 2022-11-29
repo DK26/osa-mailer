@@ -1,5 +1,6 @@
 use lazy_static::lazy_static;
 
+use anyhow::{anyhow, Context, Result};
 use lettre::address::AddressError;
 use lettre::message::Message as LettreMessage;
 use lettre::message::{header, Attachment, Body, MessageBuilder, MultiPart, SinglePart};
@@ -59,13 +60,13 @@ fn get_path(path: impl AsRef<Path>, root_dir: Option<&Path>) -> RelativePath {
 pub trait MultiPartAttachments {
     // TODO: Attach content from within the code, contained an owned Vec[u8] + Case for Base64
     // TODO: Replace return value with Result<MultiPart>
-    fn attachments(attachments: &str) -> MultiPart;
+    fn attachments(attachments: &str) -> Option<MultiPart>;
 }
 
 impl MultiPartAttachments for MultiPart {
     /// Build a MultiPart loaded with attachments from the given multiple paths (separated by `;` or `,`).
-    fn attachments(paths: &str) -> MultiPart {
-        let mut file_data;
+    fn attachments(paths: &str) -> Option<MultiPart> {
+        // let mut file_data;
         let mut file_contents_body;
         let mut file_content_type;
 
@@ -74,20 +75,30 @@ impl MultiPartAttachments for MultiPart {
         for attachment in split(paths) {
             let attachment_path = Path::new(attachment);
 
-            file_data = fs::read(attachment_path).expect("File not found");
-            file_contents_body = Body::new(file_data);
-            file_content_type = get_mime(attachment_path);
+            match fs::read(attachment_path) {
+                Ok(fd) => {
+                    // file_data = fs::read(attachment_path).expect("File not found");
+                    file_contents_body = Body::new(fd);
+                    file_content_type = get_mime(attachment_path);
 
-            let attachment_part = Attachment::new(owned_filename_string(attachment_path))
-                .body(file_contents_body, file_content_type.parse().unwrap());
+                    let attachment_part = Attachment::new(owned_filename_string(attachment_path))
+                        .body(file_contents_body, file_content_type.parse().unwrap());
 
-            multi_part = Some(match multi_part {
-                None => MultiPart::mixed().singlepart(attachment_part),
-                Some(part) => part.singlepart(attachment_part),
-            });
+                    multi_part = Some(match multi_part {
+                        None => MultiPart::mixed().singlepart(attachment_part),
+                        Some(part) => part.singlepart(attachment_part),
+                    });
+                }
+                Err(e) => {
+                    eprintln!(
+                        "Unable to find attachment file \"{}\". {e}",
+                        attachment_path.display()
+                    );
+                    continue;
+                }
+            }
         }
-
-        multi_part.unwrap()
+        multi_part
     }
 }
 
@@ -395,7 +406,8 @@ impl Message {
     }
 
     pub fn attachments(mut self, attachments: &str) -> Self {
-        self.attachments = Some(MultiPart::attachments(attachments));
+        // self.attachments = Some(MultiPart::attachments(attachments));
+        self.attachments = MultiPart::attachments(attachments);
         self
     }
 }
@@ -430,7 +442,7 @@ impl std::convert::From<Message> for LettreMessage {
                 MultiPart::mixed().singlepart(
                     SinglePart::builder()
                         .header(header::ContentType::TEXT_PLAIN)
-                        .body(String::new()), // Empty E-mail if not contents were given
+                        .body(String::new()), // Empty E-mail if no contents were given
                 )
             }))
             .unwrap()
@@ -474,28 +486,41 @@ impl<'a> Connection<'a> {
     // }
 
     /// Establish the connection
-    pub fn establish(&mut self, username: SecUtf8, password: SecUtf8) {
-        let connection = SmtpTransport::relay(self.relay_server)
-            .unwrap()
-            .credentials(Credentials::new(
-                username.into_unsecure(),
-                password.into_unsecure(),
-            ))
-            .port(self.port) // TODO: Set all configurations: https://docs.rs/lettre/latest/lettre/transport/smtp/struct.SmtpTransportBuilder.html#method.port
+    // pub fn establish(&mut self, username: SecUtf8, password: SecUtf8) {
+    //     let connection = SmtpTransport::relay(self.relay_server)
+    //         .unwrap()
+    //         .credentials(Credentials::new(
+    //             username.into_unsecure(),
+    //             password.into_unsecure(),
+    //         ))
+    //         .port(self.port) // TODO: Set all configurations: https://docs.rs/lettre/latest/lettre/transport/smtp/struct.SmtpTransportBuilder.html#method.port
+    //         .build();
+    // }
+
+    pub fn establish(&mut self) {
+        let connection = SmtpTransport::builder_dangerous(self.relay_server)
+            .port(self.port)
             .build();
+
+        // .unwrap()
+        // .credentials(Credentials::new(
+        //     username.into_unsecure(),
+        //     password.into_unsecure(),
+        // ))
+        // .port(self.port) // TODO: Set all configurations: https://docs.rs/lettre/latest/lettre/transport/smtp/struct.SmtpTransportBuilder.html#method.port
+        // .build();
+
+        self.connection = Some(connection);
     }
 
     /// Send a lettre Message object downstream
-    pub fn send(&self, msg: LettreMessage) {
-        // println!(
-        //     "Message: \n{}",
-        //     String::from_utf8(message.formatted()).unwrap()
-        // );
+    pub fn send(&self, msg: LettreMessage) -> Result<()> {
+        let connection = self
+            .connection
+            .as_ref()
+            .ok_or_else(|| anyhow!("No connection was established."));
 
-        let connection = self.connection.as_ref().unwrap();
-        match connection.send(&msg) {
-            Ok(_) => println!("Email sent successfully!"),
-            Err(e) => panic!("Could not send email: {:?}", e),
-        }
+        connection?.send(&msg)?;
+        Ok(())
     }
 }

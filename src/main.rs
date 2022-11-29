@@ -45,10 +45,15 @@ fn main() -> anyhow::Result<()> {
     let templates_path = current_exe_dir.join(TEMPLATE_DIR);
 
     // TODO: Make static and use CLI ARGUMENTS instead
-    let server = env::var("SERVER").unwrap_or_default();
+    let server = env::var("SERVER").unwrap_or_else(|_| "localhost".to_string());
     let port: u16 = env::var("PORT")
         .unwrap_or_else(|_| "25".to_string())
         .parse()?;
+
+    // Establish one connection to send all E-mails
+    println!("Mail-Relay: \"{server}:{port}\"");
+    let mut connection = send::Connection::new(&server, port);
+    connection.establish();
 
     for email in composed_emails {
         let email_template_images_root = templates_path.join(&email.header.template);
@@ -105,15 +110,22 @@ fn main() -> anyhow::Result<()> {
                     .content(&html_payload, Some(&email_template_images_root))
                     .attachments(&attachments);
 
-                let mut connection = send::Connection::new(&server, port);
+                // let mut connection = send::Connection::new(&server, port);
 
-                let username: SecUtf8 = env::var("USERNAME").unwrap_or_default().into();
-                let password: SecUtf8 = env::var("PASSWORD").unwrap_or_default().into();
-                connection.establish(username, password);
+                // let username: SecUtf8 = env::var("USERNAME").unwrap_or_default().into();
+                // let password: SecUtf8 = env::var("PASSWORD").unwrap_or_default().into();
+                // connection.establish(username, password);
+                // connection.establish();
 
                 // Lower privilege.
                 // let connection = connection;
-                connection.send(message.into());
+                match connection.send(message.into()) {
+                    Ok(_) => println!("Email sent successfully!"),
+                    Err(e) => {
+                        eprintln!("{e}");
+                        continue;
+                    }
+                }
             }
 
             Err(e) => {
