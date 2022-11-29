@@ -91,7 +91,7 @@ impl MultiPartAttachments for MultiPart {
                 }
                 Err(e) => {
                     eprintln!(
-                        "Unable to find attachment file \"{}\". {e}",
+                        "Failed to attach file: \"{}\". {e}",
                         attachment_path.display()
                     );
                     continue;

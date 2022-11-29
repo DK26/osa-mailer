@@ -1,6 +1,10 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::{collections::HashMap, path::Path};
+use std::rc::Rc;
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 use chrono::{DateTime, FixedOffset};
 use walkdir::{DirEntry, WalkDir};
@@ -60,17 +64,19 @@ pub(crate) struct Email {
 /// A Composed E-mail is one that has all of its context gathered and ordered.
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub(crate) struct ComposedEmail {
+    pub(crate) id: u32,
     pub(crate) header: Email,
     pub(crate) context: serde_json::Map<String, serde_json::Value>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub(crate) struct Entry {
-    id: String,
-    utc: DateTime<FixedOffset>,
-    notify_error: Vec<String>,
-    email: Email,
-    context: serde_json::Map<String, serde_json::Value>,
+    pub(crate) id: String,
+    pub(crate) path: Option<PathBuf>,
+    pub(crate) utc: DateTime<FixedOffset>,
+    pub(crate) notify_error: Vec<String>,
+    pub(crate) email: Email,
+    pub(crate) context: serde_json::Map<String, serde_json::Value>,
 }
 
 impl Entry {
@@ -86,6 +92,7 @@ impl Entry {
 pub(crate) struct EntryContent {
     id: String,
     content: String,
+    path: Option<PathBuf>,
 }
 
 #[derive(Debug)]
@@ -96,12 +103,12 @@ pub(crate) struct EntryParseError {
 
 fn parse_entities(
     entries: &Vec<EntryContent>,
-    parsed_entries: &mut Vec<Entry>,
+    parsed_entries: &mut Vec<Rc<Entry>>,
     parse_errors: &mut Vec<EntryParseError>,
 ) {
     for entry in entries {
         match serde_json::from_str::<Entry>(&entry.content) {
-            Ok(v) => parsed_entries.push(v),
+            Ok(v) => parsed_entries.push(Rc::new(v)),
             Err(e) => parse_errors.push(EntryParseError {
                 entry_content: entry.clone(),
                 error: e,
@@ -121,7 +128,7 @@ fn is_entry(entry: &DirEntry, extension: &str) -> bool {
 /// The results of parsing the entry files
 #[derive(Debug)]
 pub(crate) struct EntryParseResults {
-    pub(crate) ok: Vec<Entry>,
+    pub(crate) ok: Vec<Rc<Entry>>,
     pub(crate) err: Vec<EntryParseError>,
 }
 
@@ -139,8 +146,8 @@ pub(crate) fn load_entries<P: AsRef<Path>>(dir: P, extension: &str) -> EntryPars
                 raw_entries.push(EntryContent {
                     id: entry.path().display().to_string(),
                     content: v,
+                    path: Some(entry.path().to_owned()),
                 });
-                let _ = fs::remove_file(entry.path());
             }
             Err(_) => continue,
         }
@@ -157,10 +164,10 @@ pub(crate) fn load_entries<P: AsRef<Path>>(dir: P, extension: &str) -> EntryPars
     }
 }
 
-type EmailEntries = HashMap<u32, Vec<Entry>>;
+type EmailEntries = HashMap<u32, Vec<Rc<Entry>>>;
 
 /// Arrange all entries for each E-Mail ID in an ordered manure.
-pub(crate) fn map_emails(entries_pool: Vec<Entry>) -> EmailEntries {
+pub(crate) fn map_emails(entries_pool: &Vec<Rc<Entry>>) -> EmailEntries {
     let mut email_entries: EmailEntries = HashMap::new();
 
     // Accumulate entries of the same E-mail
@@ -172,7 +179,7 @@ pub(crate) fn map_emails(entries_pool: Vec<Entry>) -> EmailEntries {
         let entries = email_entries.entry(email_id).or_insert_with(Vec::new);
 
         // Append new Entry to the E-Mail ID
-        entries.push(entry)
+        entries.push(entry.clone())
     }
 
     // Order entries by their UTC time
@@ -222,7 +229,7 @@ fn copy_and_accumulate(source: &JsonObject, target: &mut JsonObject) {
 pub(crate) fn compose_emails(email_entries: &EmailEntries) -> Vec<ComposedEmail> {
     let mut composed_emails = Vec::new();
 
-    for entries in email_entries.values() {
+    for (id, entries) in email_entries {
         let first_entry = entries
             .get(0)
             .expect("The vector was created empty when it was inserted to the map.");
@@ -237,6 +244,7 @@ pub(crate) fn compose_emails(email_entries: &EmailEntries) -> Vec<ComposedEmail>
         }
 
         let composed_email = ComposedEmail {
+            id: *id,
             header: email,
             context: final_context,
         };

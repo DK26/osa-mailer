@@ -110,7 +110,7 @@ def main():
 
     b64 = json_to_b64(email_entry)
     print(str(b64, "utf-8"))
-    print("length: {}".format(len(b64)))
+    # print("length: {}".format(len(b64)))
 
 
 if __name__ == '__main__':

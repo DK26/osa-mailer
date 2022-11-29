@@ -33,7 +33,7 @@ fn main() -> anyhow::Result<()> {
 
     let entries_pool = entry_parse_results.ok;
 
-    let emails_map = entries::map_emails(entries_pool); // Each E-Mail ID with its E-mail contents, in order
+    let emails_map = entries::map_emails(&entries_pool); // Each E-Mail ID with its E-mail contents, in order
 
     let composed_emails = entries::compose_emails(&emails_map);
 
@@ -120,7 +120,18 @@ fn main() -> anyhow::Result<()> {
                 // Lower privilege.
                 // let connection = connection;
                 match connection.send(message.into()) {
-                    Ok(_) => println!("Email sent successfully!"),
+                    Ok(_) => {
+                        println!("Email sent successfully!");
+
+                        // Get E-mail ID, retrieve its Entries and remove them
+                        if let Some(email_entries) = emails_map.get(&email.id) {
+                            for entry in email_entries {
+                                if let Some(ref entry_path) = entry.path {
+                                    let _ = fs::remove_file(entry_path);
+                                }
+                            }
+                        }
+                    }
                     Err(e) => {
                         eprintln!("{e}");
                         continue;
