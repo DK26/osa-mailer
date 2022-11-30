@@ -138,7 +138,7 @@ impl MultiPartHtmlWithImages for MultiPart {
             SinglePart::builder()
                 .header(header::ContentType::TEXT_HTML)
                 .header(header::ContentTransferEncoding::Base64)
-                .body(String::from(html_image_embedded)),
+                .body(html_image_embedded),
         );
 
         for (cid, mime, full_file_path) in images {
