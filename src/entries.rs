@@ -71,25 +71,32 @@ pub(crate) struct ComposedEmail {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub(crate) struct Entry {
-    pub(crate) id: String,
-    pub(crate) path: Option<PathBuf>,
-    pub(crate) utc: DateTime<FixedOffset>,
-    pub(crate) notify_error: Vec<String>,
-    pub(crate) email: Email,
-    pub(crate) context: serde_json::Map<String, serde_json::Value>,
+    id: String,
+    utc: DateTime<FixedOffset>,
+    notify_error: Vec<String>,
+    email: Email,
+    context: serde_json::Map<String, serde_json::Value>,
 }
 
-impl Entry {
+/// Contains metadata about the parsed entry and the deserialized entry itself
+// I couldn't find a proper name for an object that adds metadata about the entry but also contains the entry (like an extension for it).
+pub(crate) struct ParsedEntry {
+    pub(crate) id: String,
+    pub(crate) path: Option<PathBuf>,
+    pub(crate) entry: Entry,
+}
+
+impl ParsedEntry {
     /// Calculate the E-Mail ID for the current entry.
     pub fn email_id(&self) -> u32 {
-        let email_string = serde_json::to_string(&self.email)
+        let email_string = serde_json::to_string(&self.entry.email)
             .expect("Deserialized from JSON but cannot be serialized into JSON?");
         crc32_iso_hdlc_checksum(email_string.as_bytes())
     }
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct EntryContent {
+pub(crate) struct UnparsedEntry {
     id: String,
     content: String,
     path: Option<PathBuf>,
@@ -97,20 +104,24 @@ pub(crate) struct EntryContent {
 
 #[derive(Debug)]
 pub(crate) struct EntryParseError {
-    pub(crate) entry_content: EntryContent,
+    pub(crate) entry_content: UnparsedEntry,
     pub(crate) error: serde_json::Error,
 }
 
 fn parse_entities(
-    entries: &Vec<EntryContent>,
-    parsed_entries: &mut Vec<Rc<Entry>>,
+    unparsed_entries: &Vec<UnparsedEntry>,
+    parsed_entries: &mut Vec<Rc<ParsedEntry>>,
     parse_errors: &mut Vec<EntryParseError>,
 ) {
-    for entry in entries {
-        match serde_json::from_str::<Entry>(&entry.content) {
-            Ok(v) => parsed_entries.push(Rc::new(v)),
+    for unparsed_entry in unparsed_entries {
+        match serde_json::from_str::<Entry>(&unparsed_entry.content) {
+            Ok(parsed_entry) => parsed_entries.push(Rc::new(ParsedEntry {
+                id: unparsed_entry.id.clone(),
+                path: unparsed_entry.path.clone(),
+                entry: parsed_entry,
+            })),
             Err(e) => parse_errors.push(EntryParseError {
-                entry_content: entry.clone(),
+                entry_content: unparsed_entry.clone(),
                 error: e,
             }),
         }
@@ -126,9 +137,8 @@ fn is_entry(entry: &DirEntry, extension: &str) -> bool {
 }
 
 /// The results of parsing the entry files
-#[derive(Debug)]
 pub(crate) struct EntryParseResults {
-    pub(crate) ok: Vec<Rc<Entry>>,
+    pub(crate) ok: Vec<Rc<ParsedEntry>>,
     pub(crate) err: Vec<EntryParseError>,
 }
 
@@ -143,7 +153,7 @@ pub(crate) fn load_entries<P: AsRef<Path>>(dir: P, extension: &str) -> EntryPars
 
         match entry_content {
             Ok(v) => {
-                raw_entries.push(EntryContent {
+                raw_entries.push(UnparsedEntry {
                     id: entry.path().display().to_string(),
                     content: v,
                     path: Some(entry.path().to_owned()),
@@ -164,27 +174,27 @@ pub(crate) fn load_entries<P: AsRef<Path>>(dir: P, extension: &str) -> EntryPars
     }
 }
 
-type EmailEntries = HashMap<u32, Vec<Rc<Entry>>>;
+type EmailEntries = HashMap<u32, Vec<Rc<ParsedEntry>>>;
 
 /// Arrange all entries for each E-Mail ID in an ordered manure.
-pub(crate) fn map_emails(entries_pool: &Vec<Rc<Entry>>) -> EmailEntries {
+pub(crate) fn map_emails(entries_pool: &Vec<Rc<ParsedEntry>>) -> EmailEntries {
     let mut email_entries: EmailEntries = HashMap::new();
 
     // Accumulate entries of the same E-mail
-    for entry in entries_pool {
+    for entry_metadata in entries_pool {
         // Calculate ID for each E-Mail entry
-        let email_id = entry.email_id();
+        let email_id = entry_metadata.email_id();
 
         // Retrieve entries vector for E-Mail ID (or create one if doesn't exists)
         let entries = email_entries.entry(email_id).or_insert_with(Vec::new);
 
         // Append new Entry to the E-Mail ID
-        entries.push(entry.clone())
+        entries.push(entry_metadata.clone())
     }
 
     // Order entries by their UTC time
     for (_, value) in email_entries.iter_mut() {
-        value.sort_by(|a, b| a.utc.cmp(&b.utc))
+        value.sort_by(|a, b| a.entry.utc.cmp(&b.entry.utc))
     }
 
     email_entries
@@ -229,17 +239,17 @@ fn copy_and_accumulate(source: &JsonObject, target: &mut JsonObject) {
 pub(crate) fn compose_emails(email_entries: &EmailEntries) -> Vec<ComposedEmail> {
     let mut composed_emails = Vec::new();
 
-    for (id, entries) in email_entries {
-        let first_entry = entries
+    for (id, entries_metadata) in email_entries {
+        let first_entry = entries_metadata
             .get(0)
             .expect("The vector was created empty when it was inserted to the map.");
 
-        let email = first_entry.email.clone();
+        let email = first_entry.entry.email.clone();
 
-        let mut final_context = first_entry.context.clone();
+        let mut final_context = first_entry.entry.context.clone();
 
-        for entry in entries {
-            let entry_context = &entry.context;
+        for entry_metadata in entries_metadata {
+            let entry_context = &entry_metadata.entry.context;
             copy_and_accumulate(entry_context, &mut final_context);
         }
 

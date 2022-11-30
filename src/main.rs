@@ -2,6 +2,7 @@
 extern crate lazy_static;
 
 use anyhow::{anyhow, Context, Result};
+use lettre::transport::smtp::authentication::Credentials;
 use secstr::SecUtf8;
 use std::{env, fs, rc::Rc};
 
@@ -50,10 +51,22 @@ fn main() -> anyhow::Result<()> {
         .unwrap_or_else(|_| "25".to_string())
         .parse()?;
 
+    let auth: send::Authentication = env::var("AUTH")
+        .unwrap_or_else(|_| "noauth".to_string())
+        .parse()?;
+
     // Establish one connection to send all E-mails
-    println!("Mail-Relay: \"{server}:{port}\"");
-    let mut connection = send::Connection::new(&server, port);
-    connection.establish();
+    println!("Mail-Relay: \"{server}:{port}\" [{auth}]");
+    let mut connection = send::Connection::new(&server, port, auth);
+
+    // let username: SecUtf8 = env::var("USERNAME").unwrap_or_default().into();
+    // let password: SecUtf8 = env::var("PASSWORD").unwrap_or_default().into();
+    // connection.establish(username, password);
+    if let (Ok(username), Ok(password)) = (env::var("USERNAME"), env::var("PASSWORD")) {
+        connection.establish(Some(Credentials::new(username, password)))
+    } else {
+        connection.establish(None);
+    }
 
     for email in composed_emails {
         let email_template_images_root = templates_path.join(&email.header.template);
@@ -98,7 +111,7 @@ fn main() -> anyhow::Result<()> {
                 let reply_to = email.header.reply_to.join(", ");
                 let attachments = email.header.attachments.join(", ");
 
-                // TODO: Send E-mail
+                // Send E-mail
                 let message = send::Message::new()
                     .from(&email.header.from)
                     .to_addresses(&to)
@@ -127,6 +140,7 @@ fn main() -> anyhow::Result<()> {
                         if let Some(email_entries) = emails_map.get(&email.id) {
                             for entry in email_entries {
                                 if let Some(ref entry_path) = entry.path {
+                                    // println!("Path: {entry_path:?}");
                                     let _ = fs::remove_file(entry_path);
                                 }
                             }

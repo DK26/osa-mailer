@@ -221,15 +221,31 @@ pub enum Authentication {
     Starttls,
 }
 
+impl std::fmt::Display for Authentication {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            Authentication::NoAuth => write!(f, "noauth"),
+            Authentication::Tls => write!(f, "tls"),
+            Authentication::Starttls => write!(f, "starttls"),
+        }
+    }
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum RelayError {
+    #[error("Unknown SMTP authentication method \"{0}\"")]
+    UnknownAuthenticationMethod(String),
+}
+
 impl FromStr for Authentication {
-    type Err = ();
+    type Err = RelayError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let res = match s.trim().to_lowercase().as_str() {
             "noauth" => Authentication::NoAuth,
             "tls" => Authentication::Tls,
             "starttls" => Authentication::Starttls,
-            _ => return Err(()),
+            _ => return Err(RelayError::UnknownAuthenticationMethod(s.to_string())),
         };
 
         Ok(res)
@@ -468,14 +484,16 @@ pub struct Connection<'a> {
     // tx: Option<Sender<LettreMessage>>,
     // mode: ConnectionMode,
     connection: Option<SmtpTransport>,
+    auth: Authentication,
 }
 
 impl<'a> Connection<'a> {
-    pub fn new(relay_server: &'a str, port: u16) -> Self {
+    pub fn new(relay_server: &'a str, port: u16, auth: Authentication) -> Self {
         Self {
             // credentials: Credentials::new(username, password), // TODO: Improve security:
             relay_server,
             port,
+            auth,
             connection: None,
         }
     }
@@ -497,10 +515,34 @@ impl<'a> Connection<'a> {
     //         .build();
     // }
 
-    pub fn establish(&mut self) {
-        let connection = SmtpTransport::builder_dangerous(self.relay_server)
-            .port(self.port)
-            .build();
+    pub fn establish(&mut self, credentials: Option<Credentials>) {
+        let connection = match self.auth {
+            Authentication::NoAuth => SmtpTransport::builder_dangerous(self.relay_server)
+                .port(self.port)
+                .build(),
+            Authentication::Tls => {
+                let mut smtp_builder = SmtpTransport::relay(self.relay_server).unwrap();
+
+                if let Some(passed_credentials) = credentials {
+                    smtp_builder = smtp_builder.credentials(passed_credentials);
+                };
+
+                smtp_builder
+                    .port(self.port) // TODO: Set all configurations: https://docs.rs/lettre/0.10.0-rc.4/lettre/transport/smtp/struct.SmtpTransportBuilder.html#method.port
+                    .build()
+            }
+            Authentication::Starttls => {
+                let mut smtp_builder = SmtpTransport::starttls_relay(self.relay_server).unwrap();
+
+                if let Some(passed_credentials) = credentials {
+                    smtp_builder = smtp_builder.credentials(passed_credentials);
+                };
+
+                smtp_builder
+                    .port(self.port) // TODO: Set all configurations: https://docs.rs/lettre/0.10.0-rc.4/lettre/transport/smtp/struct.SmtpTransportBuilder.html#method.port
+                    .build()
+            }
+        };
 
         // .unwrap()
         // .credentials(Credentials::new(

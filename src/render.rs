@@ -494,8 +494,6 @@ pub(crate) fn render<'a>(
             // tera.add_template_files(template_references)
             //     .context("Tera failed loading partial template files")?;
 
-            // FIXME: Looks like Tera is scanning the templates dir too deep and is trying to load images under `resources` as template files
-            // FIXME: `Failed to read template '...', stream did not contain UTF-8`
             let mut tera =
                 Tera::new(&templates_home_dir_glob).context("Unable to create Tera instance")?;
 
