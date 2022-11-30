@@ -9,7 +9,6 @@ use lettre::{SmtpTransport, Transport};
 use lettre::transport::smtp::authentication::Credentials;
 use regex::Regex;
 use relative_path::RelativePath;
-use secstr::SecUtf8;
 
 use std::fs;
 use std::path::Path;
@@ -189,29 +188,29 @@ impl MultipleAddressParser for MessageBuilder {
     }
 }
 
-#[derive(Debug)]
-pub struct SecUtf8Credentials {
-    username: SecUtf8,
-    password: SecUtf8,
-}
+// #[derive(Debug)]
+// pub struct SecUtf8Credentials {
+//     username: SecUtf8,
+//     password: SecUtf8,
+// }
 
-impl SecUtf8Credentials {
-    pub fn new(username: String, password: String) -> Self {
-        Self {
-            username: SecUtf8::from(username),
-            password: SecUtf8::from(password),
-        }
-    }
-}
+// impl SecUtf8Credentials {
+//     pub fn new(username: String, password: String) -> Self {
+//         Self {
+//             username: SecUtf8::from(username),
+//             password: SecUtf8::from(password),
+//         }
+//     }
+// }
 
-impl From<SecUtf8Credentials> for lettre::transport::smtp::authentication::Credentials {
-    fn from(credentials: SecUtf8Credentials) -> Self {
-        lettre::transport::smtp::authentication::Credentials::new(
-            credentials.username.into_unsecure(),
-            credentials.password.into_unsecure(),
-        )
-    }
-}
+// impl From<SecUtf8Credentials> for lettre::transport::smtp::authentication::Credentials {
+//     fn from(credentials: SecUtf8Credentials) -> Self {
+//         lettre::transport::smtp::authentication::Credentials::new(
+//             credentials.username.into_unsecure(),
+//             credentials.password.into_unsecure(),
+//         )
+//     }
+// }
 
 /// Defines how to connect
 #[derive(Debug)]

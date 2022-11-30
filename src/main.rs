@@ -3,7 +3,6 @@ extern crate lazy_static;
 
 use anyhow::{anyhow, Context, Result};
 use lettre::transport::smtp::authentication::Credentials;
-use secstr::SecUtf8;
 use std::{env, fs, rc::Rc};
 
 use crate::render::{ContextData, TemplateData};
@@ -15,7 +14,7 @@ mod errors;
 mod render;
 mod send;
 
-const ENTRY_DIR: &str = "entries";
+const ENTRY_DIR: &str = "outbox";
 const ENTRY_EXT: &str = ".json";
 const TEMPLATE_DIR: &str = "templates";
 

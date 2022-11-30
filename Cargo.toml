@@ -30,7 +30,6 @@ lettre = { version = "0.10", default-features = false, features = [
 ] }
 mime_guess = "2"
 lazy_static = "1"
-secstr = "0.5"
 
 [profile.release]
 panic = 'abort'
