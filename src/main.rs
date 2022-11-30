@@ -59,9 +59,6 @@ fn main() -> anyhow::Result<()> {
     println!("Mail-Relay: \"{server}:{port}\" [{auth}]");
     let mut connection = send::Connection::new(&server, port, auth);
 
-    // let username: SecUtf8 = env::var("USERNAME").unwrap_or_default().into();
-    // let password: SecUtf8 = env::var("PASSWORD").unwrap_or_default().into();
-    // connection.establish(username, password);
     if let (Ok(username), Ok(password)) = (env::var("USERNAME"), env::var("PASSWORD")) {
         connection.establish(Some(Credentials::new(username, password)))
     } else {
@@ -86,8 +83,6 @@ fn main() -> anyhow::Result<()> {
             },
             file_path: { Some(&email_template_path) },
         };
-
-        // let template_context = &email.context;
 
         let context_data = ContextData {
             context: serde_json::Value::Object(email.context.clone()),
@@ -123,13 +118,6 @@ fn main() -> anyhow::Result<()> {
                     .content(&html_payload, Some(&email_template_images_root))
                     .attachments(&attachments);
 
-                // let mut connection = send::Connection::new(&server, port);
-
-                // let username: SecUtf8 = env::var("USERNAME").unwrap_or_default().into();
-                // let password: SecUtf8 = env::var("PASSWORD").unwrap_or_default().into();
-                // connection.establish(username, password);
-                // connection.establish();
-
                 // Lower privilege.
                 // let connection = connection;
                 match connection.send(message.into()) {
@@ -140,7 +128,6 @@ fn main() -> anyhow::Result<()> {
                         if let Some(email_entries) = emails_map.get(&email.id) {
                             for entry in email_entries {
                                 if let Some(ref entry_path) = entry.path {
-                                    // println!("Path: {entry_path:?}");
                                     let _ = fs::remove_file(entry_path);
                                 }
                             }
