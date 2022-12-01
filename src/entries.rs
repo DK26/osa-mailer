@@ -143,7 +143,8 @@ pub(crate) struct EntryParseResults {
 }
 
 pub(crate) fn load_entries<P: AsRef<Path>>(dir: P, extension: &str) -> EntryParseResults {
-    let mut raw_entries = Vec::new();
+    let mut unparsed_entries = Vec::new();
+
     for entry in WalkDir::new(dir)
         .into_iter()
         .filter_map(|e| e.ok())
@@ -153,7 +154,7 @@ pub(crate) fn load_entries<P: AsRef<Path>>(dir: P, extension: &str) -> EntryPars
 
         match entry_content {
             Ok(v) => {
-                raw_entries.push(UnparsedEntry {
+                unparsed_entries.push(UnparsedEntry {
                     id: entry.path().display().to_string(),
                     content: v,
                     path: Some(entry.path().to_owned()),
@@ -166,7 +167,7 @@ pub(crate) fn load_entries<P: AsRef<Path>>(dir: P, extension: &str) -> EntryPars
     let mut result = Vec::new();
     let mut errors = Vec::new();
 
-    parse_entities(&raw_entries, &mut result, &mut errors);
+    parse_entities(&unparsed_entries, &mut result, &mut errors);
 
     EntryParseResults {
         ok: result,
@@ -253,12 +254,11 @@ pub(crate) fn compose_emails(email_entries: &EmailEntries) -> Vec<ComposedEmail>
             copy_and_accumulate(entry_context, &mut final_context);
         }
 
-        let composed_email = ComposedEmail {
+        composed_emails.push(ComposedEmail {
             id: *id,
             header: email,
             context: final_context,
-        };
-        composed_emails.push(composed_email);
+        });
     }
     composed_emails
 }
