@@ -97,7 +97,7 @@ fn main() -> anyhow::Result<()> {
 
         match rendered_template_result {
             Ok(rendered_template) => {
-                let html_payload = rendered_template.0.clone();
+                let html_payload = rendered_template.0;
 
                 let to = email.header.to.join(", ");
                 let cc = email.header.cc.join(", ");
@@ -127,11 +127,13 @@ fn main() -> anyhow::Result<()> {
                         if let Some(email_entries) = emails_map.get(&email.id) {
                             for entry in email_entries {
                                 if let Some(ref entry_path) = entry.path {
+                                    // FIXME: Handle case for removal failure (maybe use in-memory blacklist that both ignores the entry and tries to remove it)
                                     let _ = fs::remove_file(entry_path);
                                 }
                             }
                         }
                     }
+                    // Sending failure
                     Err(e) => {
                         eprintln!("{e}");
                         continue;
@@ -139,6 +141,7 @@ fn main() -> anyhow::Result<()> {
                 }
             }
 
+            // Rendering failure
             Err(e) => {
                 eprintln!("{:?}", e);
                 continue;
