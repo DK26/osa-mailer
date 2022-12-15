@@ -58,11 +58,12 @@ fn main() -> anyhow::Result<()> {
     println!("Mail-Relay: \"{server}:{port}\" [{auth}]");
     let mut connection = send::Connection::new(&server, port, auth);
 
-    if let (Ok(username), Ok(password)) = (env::var("USERNAME"), env::var("PASSWORD")) {
-        connection.establish(Some(Credentials::new(username, password)))
-    } else {
-        connection.establish(None);
-    }
+    let credentials: Option<Credentials> = match (env::var("USERNAME"), env::var("PASSWORD")) {
+        (Ok(username), Ok(password)) => Some(Credentials::new(username, password)),
+        _ => None,
+    };
+
+    connection.establish(credentials);
 
     for email in composed_emails {
         let email_template_images_root = templates_path.join(&email.header.template);

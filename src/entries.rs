@@ -175,6 +175,14 @@ pub(crate) fn load_entries<P: AsRef<Path>>(dir: P, extension: &str) -> EntryPars
     }
 }
 
+enum EmailComposeMethod {
+    /// Treat each entry as a single E-mail
+    Single,
+
+    /// Accumulate a batch of E-mails
+    Batch,
+}
+
 type EmailEntries = HashMap<u32, Vec<Rc<ParsedEntry>>>;
 
 /// Arrange all entries for each E-Mail ID in an ordered manure.
@@ -203,12 +211,19 @@ pub(crate) fn map_emails(entries_pool: &Vec<Rc<ParsedEntry>>) -> EmailEntries {
 
 type JsonObject = serde_json::Map<String, serde_json::Value>;
 
-fn copy_and_accumulate(source: &JsonObject, target: &mut JsonObject) {
+fn copy_and_accumulate(
+    source: &JsonObject,
+    target: &mut JsonObject,
+    email_compose_method: &mut EmailComposeMethod,
+) {
     // Scan all key/value elements in the source JSON object
     for (k, v) in source {
         // Detected an accumulation sign in key name
 
         if let Some(key_name) = k.strip_prefix('+') {
+            // When we detect the `+` key symbol, we automatically treat all entries as a batch meant for a single E-mail
+            *email_compose_method = EmailComposeMethod::Batch;
+
             // Remove the prefixed version key from the target JSON object
             target.remove(k);
 
@@ -229,7 +244,7 @@ fn copy_and_accumulate(source: &JsonObject, target: &mut JsonObject) {
                 .or_insert_with(|| serde_json::Value::Object(json_obj_borrowed.to_owned()));
 
             if let serde_json::Value::Object(ref mut iv) = nested_target {
-                copy_and_accumulate(json_obj_borrowed, iv);
+                copy_and_accumulate(json_obj_borrowed, iv, email_compose_method);
             }
         } else {
             target.entry(k).or_insert_with(|| v.clone());
@@ -247,18 +262,39 @@ pub(crate) fn compose_emails(email_entries: &EmailEntries) -> Vec<ComposedEmail>
 
         let email = first_entry.entry.email.clone();
 
-        let mut final_context = first_entry.entry.context.clone();
+        // Create accumulated context object
+        let mut accumulated_context = first_entry.entry.context.clone();
+
+        // By default, we assume the `single` mode for Email composition. e.g. Every single entry is an E-mail to send.
+        // This can be changed if the `+` key symbol is detected during context scan of the first E-mail entry, which then changes the mode to `batch`.
+        let mut email_compose_method = EmailComposeMethod::Single;
 
         for entry_metadata in entries_metadata {
             let entry_context = &entry_metadata.entry.context;
-            copy_and_accumulate(entry_context, &mut final_context);
+            copy_and_accumulate(
+                entry_context,
+                &mut accumulated_context,
+                &mut email_compose_method,
+            );
+
+            if let EmailComposeMethod::Single = email_compose_method {
+                // Create a single E-mail for a single entry
+                composed_emails.push(ComposedEmail {
+                    id: *id,
+                    header: entry_metadata.entry.email.clone(),
+                    context: entry_metadata.entry.context.clone(),
+                });
+            };
         }
 
-        composed_emails.push(ComposedEmail {
-            id: *id,
-            header: email,
-            context: final_context,
-        });
+        if let EmailComposeMethod::Batch = email_compose_method {
+            // Create a single E-mail from the entries batch with their accumulated context
+            composed_emails.push(ComposedEmail {
+                id: *id,
+                header: email,
+                context: accumulated_context,
+            });
+        }
     }
     composed_emails
 }
