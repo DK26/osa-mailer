@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Chapter 1 - OSA Mailer Documentation</title>
+        <title>Introduction - OSA Mailer Documentation</title>
 
 
         <!-- Custom HTML head -->
@@ -80,7 +80,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="chapter_1.html" class="active"><strong aria-hidden="true">1.</strong> Chapter 1</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="introduction.html" class="active">Introduction</a></li><li class="chapter-item expanded affix "><li class="part-title">Getting Started</li><li class="chapter-item expanded "><div><strong aria-hidden="true">1.</strong> Setup</div></li><li class="chapter-item expanded affix "><li class="part-title">Sending an E-mail</li><li class="chapter-item expanded "><div><strong aria-hidden="true">2.</strong> Basic Features</div></li><li class="chapter-item expanded "><div><strong aria-hidden="true">3.</strong> Advanced Features</div></li><li class="chapter-item expanded affix "><li class="part-title">Creating a Client</li><li class="chapter-item expanded "><div><strong aria-hidden="true">4.</strong> Flow</div></li><li class="chapter-item expanded "><div><strong aria-hidden="true">5.</strong> E-mail Entry</div></li><li class="chapter-item expanded "><div><strong aria-hidden="true">6.</strong> The Outbox</div></li><li class="chapter-item expanded affix "><li class="part-title">Templates</li><li class="chapter-item expanded "><div><strong aria-hidden="true">7.</strong> How Templates Work</div></li><li class="chapter-item expanded "><div><strong aria-hidden="true">8.</strong> Templates Hub</div></li><li class="chapter-item expanded "><div><strong aria-hidden="true">9.</strong> Customizing Your Own Template</div></li><li><ol class="section"><li class="chapter-item expanded "><div><strong aria-hidden="true">9.1.</strong> Tera</div></li><li class="chapter-item expanded "><div><strong aria-hidden="true">9.2.</strong> Handlebars</div></li><li class="chapter-item expanded "><div><strong aria-hidden="true">9.3.</strong> Liquid</div></li></ol></li><li class="chapter-item expanded "><div><strong aria-hidden="true">10.</strong> Custom Functions</div></li><li class="chapter-item expanded "><div><strong aria-hidden="true">11.</strong> Preview with the Rendit Tool</div></li><li class="chapter-item expanded affix "><li class="part-title">Troubleshooting</li><li class="chapter-item expanded "><div><strong aria-hidden="true">12.</strong> E-mail Report on Error</div></li><li class="chapter-item expanded "><div><strong aria-hidden="true">13.</strong> Logs</div></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -141,7 +141,14 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="chapter-1"><a class="header" href="#chapter-1">Chapter 1</a></h1>
+                        <h1 id="introduction"><a class="header" href="#introduction">Introduction</a></h1>
+<p>OSA-Mailer is a free and open-source feature-rich backend engine for sending automated E-mails.</p>
+<p>It is meant to create a ready-to-use toolbox for sending E-mails which could contain some complex logical flows for dynamic inputs, outputting dynamic E-mails.</p>
+<p>It is designed to completely separate front-end, back-end and data layers in a manner that enables to add and improve features behind the scenes by the backend community, while the frontend community can focus on designing E-mail templates, which are affected by the data the user is providing. </p>
+<p>It is designed to be fault-tolerant, and capable of accumulating a batch of E-mails into a single E-mail, merging the data from the entire E-mails batch, in order to prevent spam and maintain readability.</p>
+<p>It is designed from the ground-up to be an open-source community project.</p>
+<p>It supports multiple rendering engines: <code>tera</code>, <code>handlebars</code> and <code>liquid</code>.</p>
+<p>It is written in the Rust programming language which packs all mentioned capabilities in a single, small, high-performing executable (Cloud friendly).</p>
 
                     </main>
 
