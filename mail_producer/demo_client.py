@@ -108,8 +108,13 @@ def main():
         }
     }
 
-    b64 = json_to_b64(email_entry)
-    print(str(b64, "utf-8"))
+    # Encoded Sample
+    print(str(json_to_b64(email_entry), "utf-8"))
+
+    # Decoded Sample
+    # print(json.dumps(email_entry, separators=(',', ':')))
+
+    # Debug
     # print("length: {}".format(len(b64)))
 
 

@@ -47,7 +47,14 @@ def write_to_file(entry: dict, output_dir: str) -> Optional[str]:
 
 
 def write_entry(entry: str, output_dir: str):
-    entry = b64_to_json(bytes(entry, "utf-8"))
+
+    entry = entry.strip()
+
+    if entry.startswith('{'):
+        entry = json.loads(entry)
+    else:
+        entry = b64_to_json(bytes(entry, "utf-8"))
+
     write_to_file(entry, output_dir)
 
 
