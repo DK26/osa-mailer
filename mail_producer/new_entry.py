@@ -31,7 +31,7 @@ def write_to_file(entry: dict, output_dir: str) -> Optional[str]:
     enid = entry.get("id")
 
     # Create a JSON structured string from the `entry` dictionary
-    json_content = bytes(json.dumps(entry, indent=4), "utf-8")
+    json_content = bytes(json.dumps(entry, indent=4, sort_keys=True), "utf-8")
 
     # Entry integrity
     crc = hex(zlib.crc32(json_content))[2:]
