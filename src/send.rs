@@ -81,7 +81,12 @@ impl MultiPartAttachments for MultiPart {
                     file_content_type = get_mime(attachment_path);
 
                     let attachment_part = Attachment::new(owned_filename_string(attachment_path))
-                        .body(file_contents_body, file_content_type.parse().unwrap());
+                        .body(
+                            file_contents_body,
+                            file_content_type
+                                .parse()
+                                .expect("Unable to parse attached file content type"),
+                        );
 
                     multi_part = Some(match multi_part {
                         None => MultiPart::mixed().singlepart(attachment_part),
@@ -142,10 +147,15 @@ impl MultiPartHtmlWithImages for MultiPart {
         );
 
         for (cid, mime, full_file_path) in images {
-            let image_data = fs::read(full_file_path).expect("Error reading image.");
+            let image_data = fs::read(full_file_path).expect("Error reading image");
             let image_body = Body::new(image_data);
-            multi_part = multi_part
-                .singlepart(Attachment::new_inline(cid).body(image_body, mime.parse().unwrap()))
+            multi_part = multi_part.singlepart(
+                Attachment::new_inline(cid).body(
+                    image_body,
+                    mime.parse()
+                        .expect("Unable to parse attached image content type"),
+                ),
+            )
         }
         multi_part
     }
@@ -371,12 +381,17 @@ impl Message {
     }
 
     pub fn from(mut self, address: &str) -> Self {
-        self.message_builder = self.message_builder.from(address.parse().unwrap());
+        self.message_builder = self
+            .message_builder
+            .from(address.parse().expect("Unable to parse `from` address(es)"));
         self
     }
 
     pub fn reply_to_addresses(mut self, address: &str) -> Self {
-        self.message_builder = self.message_builder.reply_to_addresses(address).unwrap();
+        self.message_builder = self
+            .message_builder
+            .reply_to_addresses(address)
+            .expect("Unable to parse `reply_to` address(es)");
         self
     }
 
@@ -386,17 +401,26 @@ impl Message {
     }
 
     pub fn to_addresses(mut self, addresses: &str) -> Self {
-        self.message_builder = self.message_builder.to_addresses(addresses).unwrap();
+        self.message_builder = self
+            .message_builder
+            .to_addresses(addresses)
+            .expect("Unable to parse `to` address(es)");
         self
     }
 
     pub fn cc_addresses(mut self, addresses: &str) -> Self {
-        self.message_builder = self.message_builder.cc_addresses(addresses).unwrap();
+        self.message_builder = self
+            .message_builder
+            .cc_addresses(addresses)
+            .expect("Unable to parse `cc` address(es)");
         self
     }
 
     pub fn bcc_addresses(mut self, addresses: &str) -> Self {
-        self.message_builder = self.message_builder.bcc_addresses(addresses).unwrap();
+        self.message_builder = self
+            .message_builder
+            .bcc_addresses(addresses)
+            .expect("Unable to parse `bcc` address(es)");
         self
     }
 
@@ -460,7 +484,7 @@ impl std::convert::From<Message> for LettreMessage {
                         .body(String::new()), // Empty E-mail if no contents were given
                 )
             }))
-            .unwrap()
+            .expect("Unable to create a message multi-part")
     }
 }
 
@@ -520,7 +544,8 @@ impl<'a> Connection<'a> {
                 .port(self.port)
                 .build(),
             Authentication::Tls => {
-                let mut smtp_builder = SmtpTransport::relay(self.relay_server).unwrap();
+                let mut smtp_builder = SmtpTransport::relay(self.relay_server)
+                    .expect("Failed to establish `TLS` connection with the provided mail relay");
 
                 if let Some(passed_credentials) = credentials {
                     smtp_builder = smtp_builder.credentials(passed_credentials);
@@ -531,7 +556,9 @@ impl<'a> Connection<'a> {
                     .build()
             }
             Authentication::Starttls => {
-                let mut smtp_builder = SmtpTransport::starttls_relay(self.relay_server).unwrap();
+                let mut smtp_builder = SmtpTransport::starttls_relay(self.relay_server).expect(
+                    "Failed to establish `STARTTLS` connection with the provided mail relay",
+                );
 
                 if let Some(passed_credentials) = credentials {
                     smtp_builder = smtp_builder.credentials(passed_credentials);
