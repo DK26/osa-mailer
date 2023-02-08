@@ -45,7 +45,7 @@ pub fn string_crc32_iso_hdlc_checksum(string: &str) -> String {
 
 #[derive(Serialize, Debug)]
 struct AccumulatedValue {
-    number: u32,
+    order: u32,
     checksum: String,
     value: serde_json::Value,
 }
@@ -239,7 +239,7 @@ fn copy_and_accumulate(
 
             if let serde_json::Value::Array(value_vec) = value_vec {
                 value_vec.push(serde_json::json!(AccumulatedValue {
-                    number: (value_vec.len() + 1) as u32,
+                    order: (value_vec.len() + 1) as u32,
                     checksum: string_crc32_iso_hdlc_checksum(&v.to_string()),
                     value: v.clone(),
                 }));
