@@ -14,6 +14,9 @@ use std::{
 };
 use tera::Tera;
 
+// TODO: Add feature: (function) Dynamic QRCode
+// TODO: Add feature: (function) Defang Values
+
 // A simple implementation of `% touch path` (ignores existing files)
 // Inspired by: https://doc.rust-lang.org/rust-by-example/std_misc/fs.html
 fn touch<P: AsRef<Path>>(path: P) -> Result<()> {
