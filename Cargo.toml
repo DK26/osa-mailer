@@ -13,7 +13,10 @@ thiserror = "1"
 crc = "3"
 anyhow = "1"
 log = "0.4"
-chrono = { version = "0.4", features = ["serde"] }
+# chrono = { version = "0.4", features = ["serde"] }
+chrono = { version = "0.4", default-features = false, features = [
+    "serde",
+] } # Handling CVE: RUSTSEC-2020-0071
 walkdir = "2.3.2"
 tera = "1"
 handlebars = "4"
