@@ -1,4 +1,4 @@
-name: Rust
+name: OSA Mailer
 
 on: [push, pull_request]
 

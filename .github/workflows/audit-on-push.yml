@@ -1,0 +1,20 @@
+name: Security Audit
+
+on:
+  push:
+    paths:
+      - '**/Cargo.toml'
+      - '**/Cargo.lock'
+
+jobs:
+  security_audit:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v1
+
+    - name: Run cargo-deny
+      uses: actions-rs/deny-check@v1
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
