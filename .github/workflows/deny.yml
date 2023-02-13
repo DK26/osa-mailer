@@ -1,0 +1,28 @@
+name: Security audit
+
+on:
+  push:
+    paths:
+      - '**/Cargo.toml'
+      - '**/Cargo.lock'
+
+jobs:
+  security_audit:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v1
+
+    - name: Set up Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+
+    - name: Install cargo-deny
+      run: |
+        cargo install cargo-deny
+
+    - name: Run security audit with cargo-deny
+      run: |
+        cargo deny check
