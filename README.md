@@ -6,8 +6,6 @@
 
 ![osa-mailer](assets/logo.gif)
 
-## Mailing Engine
-
 Send dynamic and sophisticated E-mails, using your preferred template engine
 
 ## Features
