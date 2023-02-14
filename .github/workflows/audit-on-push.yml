@@ -12,9 +12,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v1
+      uses: actions/checkout@v3
 
     - name: Run cargo-deny
-      uses: actions-rs/deny-check@v1
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
+      uses: EmbarkStudios/cargo-deny-action@v1
