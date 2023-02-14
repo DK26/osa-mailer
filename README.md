@@ -1,12 +1,11 @@
+![osa-mailer](assets/logo.gif)
+
+Send dynamic and sophisticated E-mails, using your preferred template engine
+
 [![OSA Mailer](https://github.com/DK26/osa-mailer/actions/workflows/general.yml/badge.svg?branch=main)](https://github.com/DK26/osa-mailer/actions/workflows/general.yml)
 [![Security Audit](https://github.com/DK26/osa-mailer/actions/workflows/scheduled-audit.yml/badge.svg?branch=main)](https://github.com/DK26/osa-mailer/actions/workflows/scheduled-audit.yml)
 [![pages-build-deployment](https://github.com/DK26/osa-mailer/actions/workflows/pages/pages-build-deployment/badge.svg?branch=main)](https://github.com/DK26/osa-mailer/actions/workflows/pages/pages-build-deployment)  
 
-
-
-![osa-mailer](assets/logo.gif)
-
-Send dynamic and sophisticated E-mails, using your preferred template engine
 
 ## Features
 
