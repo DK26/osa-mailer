@@ -2,7 +2,7 @@ name: Security Audit & License Compatibility
 
 on:
   schedule:
-    - cron: '0 0 * * *'
+    - cron: '*/5 * * * *'
 
 jobs:
   audit:
