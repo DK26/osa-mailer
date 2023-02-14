@@ -16,6 +16,7 @@ use tera::Tera;
 
 // TODO: Add feature: (function) Dynamic QRCode
 // TODO: Add feature: (function) Defang Values
+// TODO: Template configurations (default + selected) + support for zipped templates (Which could include license and other metadata)
 
 // A simple implementation of `% touch path` (ignores existing files)
 // Inspired by: https://doc.rust-lang.org/rust-by-example/std_misc/fs.html
