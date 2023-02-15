@@ -7,60 +7,60 @@
     "type": 1,
     "entries": [
       {
-        "idx": 1,
+        "order": 1,
         "value": [
           {
-            "idx": 1,
+            "pos": 1,
             "label": "Hostname",
             "value": "MailServer01"
           },
           {
-            "idx": 2,
+            "pos": 2,
             "label": "IP Address",
             "value": "192.168.0.1"
           },
           {
-            "idx": 3,
+            "pos": 3,
             "label": "Disk Capacity Percentage",
             "value": 95
           }
         ]
       },
       {
-        "idx": 2,
+        "order": 2,
         "items": [
           {
-            "idx": 1,
+            "pos": 1,
             "label": "Hostname",
             "value": "MailServer02"
           },
           {
-            "idx": 2,
+            "pos": 2,
             "label": "IP Address",
             "value": "192.168.0.2"
           },
           {
-            "idx": 3,
+            "pos": 3,
             "label": "Disk Capacity Percentage",
             "value": 87
           }
         ]
       },
       {
-        "idx": 3,
+        "order": 3,
         "value": [
           {
-            "idx": 1,
+            "pos": 1,
             "label": "Hostname",
             "value": "MailServer03"
           },
           {
-            "idx": 2,
+            "pos": 2,
             "label": "IP Address",
             "value": "192.168.0.3"
           },
           {
-            "idx": 3,
+            "pos": 3,
             "label": "Disk Capacity Percentage",
             "value": 77
           }
