@@ -26,7 +26,7 @@ Try the [`rendit` CLI tool](https://github.com/DK26/rendit)
 
 ## Guides (WIP)
 
-[Tutorial](https://dk26.github.io/osa-mailer/) 
+[OSA-Mailer Guide Book](https://dk26.github.io/osa-mailer/) 
 
 ## Prototype Note
 
