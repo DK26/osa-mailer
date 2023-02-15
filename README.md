@@ -2,7 +2,7 @@
 
 ![osa-mailer](assets/logo.gif)
 
-**Send dynamic and sophisticated E-mails, using your preferred template engine**
+**Send dynamic and sophisticated E-mails using Smart Templates**
 
 [![OSA Mailer](https://github.com/DK26/osa-mailer/actions/workflows/general.yml/badge.svg?branch=main)](https://github.com/DK26/osa-mailer/actions/workflows/general.yml)
 [![Security Audit](https://github.com/DK26/osa-mailer/actions/workflows/scheduled-audit.yml/badge.svg?branch=main)](https://github.com/DK26/osa-mailer/actions/workflows/scheduled-audit.yml)
