@@ -63,7 +63,7 @@ pub(crate) struct Email {
     pub(crate) template: String,
     pub(crate) alternative_content: String,
     pub(crate) attachments: Vec<String>,
-    pub(crate) custom_key: String,
+    pub(crate) key: String,
 }
 
 /// A Composed E-mail is one that has all of its context gathered and ordered.

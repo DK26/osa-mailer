@@ -62,13 +62,12 @@ def main():
             ],
 
             # Provide additional optional E-mail identifiers for the unique E-mail ID calculation
-            "custom_key": ""
+            "key": ""
 
         },
 
         # Template context variables
         "context": {
-
             "message": {
                 "head": "Detected Problems in Your Server",
                 "body": "We have detected a disk capacity problem with one or more of your servers."
@@ -81,17 +80,17 @@ def main():
                 # `+` expands `entries` to: { "idx": N, "items": [ { <ENTRY 1> }, { <ENTRY 2> }, ... , { <ENTRY N> } ] }
                 "+entries": [
                     {
-                        "idx": 1,  # In case the order gets mixed, so we will have the means to know hwo to re-order it
+                        "pos": 1,  # In case the order gets mixed, so we will have the means to know hwo to re-order it
                         "label": "Hostname",
                         "value": "MailServer01"
                     },
                     {
-                        "idx": 2,
+                        "pos": 2,
                         "label": "IP Address",
                         "value": "192.168.0.1"
                     },
                     {
-                        "idx": 3,
+                        "pos": 3,
                         "label": "Disk Capacity Percentage",
                         "value": 95
                     }
