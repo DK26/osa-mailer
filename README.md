@@ -8,6 +8,8 @@
 [![Security Audit & License Compatibility](https://github.com/DK26/osa-mailer/actions/workflows/security-audit.yml/badge.svg?branch=main)](https://github.com/DK26/osa-mailer/actions/workflows/security-audit.yml)
 [![pages-build-deployment](https://github.com/DK26/osa-mailer/actions/workflows/pages/pages-build-deployment/badge.svg?branch=main)](https://github.com/DK26/osa-mailer/actions/workflows/pages/pages-build-deployment)  
 
+[Guidebook](https://dk26.github.io/osa-mailer/) 
+
 </div>
 
 ## Features
@@ -23,10 +25,6 @@
 
 Try the [`rendit` CLI tool](https://github.com/DK26/rendit)
 
-
-## Guides (WIP)
-
-[OSA-Mailer Guidebook](https://dk26.github.io/osa-mailer/) 
 
 ## Prototype Note
 
