@@ -209,6 +209,15 @@
 <li>Extract the archived file from the <code>Download</code> section anywhere you like, but make sure you will have controlled access to the extracted <code>outbox</code> directory as this directory serves clients as a gateway for sending E-mails</li>
 </ol>
 <h2 id="configure"><a class="header" href="#configure">Configure</a></h2>
+<p><code>osamailer.cmd</code> :</p>
+<pre><code class="language-batch">:: Configurations
+SET SERVER=localhost
+SET PORT=25
+SET AUTH=noauth
+::SET USERNAME=username
+::SET PASSWORD=password
+</code></pre>
+<p><strong>Steps:</strong></p>
 <ol>
 <li>Edit the script file <code>osamailer.cmd</code> with your favorite text editor</li>
 <li>Look for the <code>:: Configurations</code> comment</li>
@@ -223,13 +232,6 @@
 </ol>
 </li>
 </ol>
-<pre><code class="language-batch">:: Configurations
-SET SERVER=localhost
-SET PORT=25
-SET AUTH=noauth
-::SET USERNAME=username
-::SET PASSWORD=password
-</code></pre>
 <h2 id="setup-a-task-for-windows-task-scheduler"><a class="header" href="#setup-a-task-for-windows-task-scheduler">Setup a Task for Windows Task Scheduler</a></h2>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="open-source-community-vision"><a class="header" href="#open-source-community-vision">Open Source Community Vision</a></h1>
 <p>Some tools are developed in workplaces for niche use-cases that repeat between different companies, workplaces and clients, where skilled workers find themselves create, write and design the same tools over and over again, having no common standard.</p>
