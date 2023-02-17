@@ -1,6 +1,6 @@
 <div align="center">
 
-![osa-mailer](assets/logo.gif)
+![osa-mailer](assets/logo.png)
 
 **Send dynamic and sophisticated E-mails using Smart Templates**
 
