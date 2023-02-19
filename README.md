@@ -4,12 +4,13 @@
 
 **Send dynamic and sophisticated E-mails using Smart Templates**
 
+[Guidebook](https://dk26.github.io/osa-mailer/) |
+[Discussions](https://github.com/DK26/osa-mailer/discussions)
+
+
 [![OSA Mailer](https://github.com/DK26/osa-mailer/actions/workflows/general.yml/badge.svg?branch=main)](https://github.com/DK26/osa-mailer/actions/workflows/general.yml)
 [![Security Audit & License Compatibility](https://github.com/DK26/osa-mailer/actions/workflows/security-audit.yml/badge.svg?branch=main)](https://github.com/DK26/osa-mailer/actions/workflows/security-audit.yml)
 [![pages-build-deployment](https://github.com/DK26/osa-mailer/actions/workflows/pages/pages-build-deployment/badge.svg?branch=main)](https://github.com/DK26/osa-mailer/actions/workflows/pages/pages-build-deployment)  
-
-[Guidebook](https://dk26.github.io/osa-mailer/)  
-[Discussions](https://github.com/DK26/osa-mailer/discussions)
 
 </div>
 
