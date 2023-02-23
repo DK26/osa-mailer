@@ -238,18 +238,78 @@ SET AUTH=noauth
 <h2 id="setup-a-task-for-windows-task-scheduler"><a class="header" href="#setup-a-task-for-windows-task-scheduler">Setup a Task for Windows Task Scheduler</a></h2>
 <p>Windows Task Scheduler can be used as a means to trigger and activate <em>OSA-Mailer</em>, but it is <strong>not</strong> a requirement in case it doesn't fit your use-case.</p>
 <h3 id="open-the-windows-task-scheduler"><a class="header" href="#open-the-windows-task-scheduler">Open the Windows Task Scheduler</a></h3>
-<p>Here are a few links to external articles on different ways to open the Windows Task Schedular:</p>
+<p>Here are a few links to external articles on different methods to launch the Windows Task Schedular:</p>
 <ul>
 <li><a href="https://www.wikihow.com/Open-Task-Scheduler-in-Windows-10">Windows 10</a></li>
 <li><a href="https://www.makeuseof.com/windows-11-open-task-scheduler/">Windows 11</a></li>
 </ul>
-<p>In order to open the Windows Task Schedular, we will use a <code>Run</code> command:</p>
+<p>Here is one way to do this:<br />
+In order to open the Windows Task Schedular, we will use a <code>Run</code> command:</p>
 <ol>
 <li>Hold the <code>Windows</code> button + press the <code>R</code> button</li>
-<li>This should open and pop the <code>Run</code> window</li>
-<li>Type in: <code>taskschd.msc</code> and either click the <code>OK</code> button or press <code>ENTER</code> key</li>
+<li>This should open the <code>Run</code> window</li>
+<li>Type in: <code>taskschd.msc</code> and either click the <code>OK</code> button or press the <code>ENTER</code> key</li>
 </ol>
-<p><img src="images/taskschd.png" alt="Run" /></p>
+<p><img src="images/windows_task_scheduler/taskschd.png" alt="Run" /></p>
+<p><img src="images/windows_task_scheduler/task_scheduler.png" alt="Windows Task Scheduler" /> </p>
+<h3 id="create-a-new-task"><a class="header" href="#create-a-new-task">Create a new Task</a></h3>
+<p>It is recommended to create the task within a dedicated folder so it will be easier to maintain and not mix-up with other unrelated tasks.</p>
+<p><strong>Steps:</strong></p>
+<ol>
+<li>
+<p>On the left pane, select the <code>Task Scheduler Library</code> directory by clicking on it once with the <code>LEFT MOUSE</code> button</p>
+</li>
+<li>
+<p>Once selected, <code>RIGHT MOUSE</code> click once again on the already selected <code>Task Scheduler Library</code>, to open the actions menu</p>
+</li>
+<li>
+<p>Select <code>New Folder...</code> from the actions menu</p>
+<p><img src="images/windows_task_scheduler/task_scheduler_create_new_folder.png" alt="Task Scheduler New Folder" /></p>
+</li>
+<li>
+<p>Pick a proper name (<code>OSA-Mailer</code> is recommended) and either click on the <code>OK</code> button or press the <code>ENTER</code> key</p>
+<p><img src="images/windows_task_scheduler/task_scheduler_new_folder.png" alt="Task Scheduler New Folder Name" /></p>
+</li>
+<li>
+<p>Select the newly created folder by a single <code>LEFT MOUSE</code> button click</p>
+<p><img src="images/windows_task_scheduler/task_scheduler_new_folder_2.png" alt="Task Scheduler New Folder Created" /></p>
+</li>
+<li>
+<p>Once selected, <code>RIGHT MOUSE</code> click on it again to pop the actions menu </p>
+</li>
+<li>
+<p>Select the <code>Create Task...</code> from the actions menu</p>
+<p><img src="images/windows_task_scheduler/task_scheduler_create_task.png" alt="Task Scheduler New Task" /></p>
+</li>
+<li>
+<p>The <code>Create Task</code> window will pop-up</p>
+</li>
+<li>
+<p>Provide the name for the task: <code>Check Outbox</code> (recommended)</p>
+</li>
+<li>
+<p>Under <code>Security options</code>, select the <code>Run whether use is logged on or not</code> and select the <code>Do not store password. The task will only have access to local computer resources.</code> checkbox</p>
+</li>
+<li>
+<p>Click on the <code>Triggers</code> tab</p>
+</li>
+</ol>
+<p><img src="images/windows_task_scheduler/task_scheduler_new_task.png" alt="Task Scheduler Create Task" /></p>
+<ol start="12">
+<li>On the <code>Triggers</code> tab, press the <code>New...</code> button to create a new trigger</li>
+</ol>
+<p><img src="images/windows_task_scheduler/task_scheduler_create_task_triggers.png" alt="Task Scheduler Task Triggers" /></p>
+<ol start="13">
+<li>The <code>New Trigger</code> window will pop-up</li>
+<li>Make sure that <code>Begin the task:</code> is set to <code>On a schedule</code></li>
+<li>Make sure that <code>Settings</code> is set on <code>One time</code></li>
+<li>Under <code>Advanced settings</code>, make sure that the <code>Repeat task every:</code> checkbox is checked</li>
+<li><strong>(Recommended)</strong>: Manually copy the value <code>1 minute</code> and assign it</li>
+<li>Make sure that <code>for a duration of:</code> is set to <code>Indefinitely</code></li>
+<li>Make sure that the <code>Enabled</code> checkbox is checked</li>
+<li>Press <code>OK</code> to the add the trigger</li>
+</ol>
+<p><img src="images/windows_task_scheduler/task_scheduler_create_task_triggers_2.png" alt="Task Scheduler New Trigger" /></p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="open-source-community-vision"><a class="header" href="#open-source-community-vision">Open Source Community Vision</a></h1>
 <p>Some tools are developed in workplaces for niche use-cases that repeat between different companies, workplaces and clients, where skilled workers find themselves create, write and design the same tools over and over again, having no common standard.</p>
 <p>My vision is to create some of these tools to be publicly available for free, encourage and build an open-source community around them in order to:</p>
