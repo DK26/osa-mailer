@@ -222,19 +222,29 @@ SET AUTH=noauth
 </code></pre>
 <p><strong>Steps:</strong></p>
 <ol>
-<li>Edit the script file <code>osamailer.cmd</code> with your favorite text editor</li>
-<li>Look for the <code>:: Configurations</code> comment</li>
-<li>Notice the <code>SET</code> statements which set each environment variable for <em>OSA-Mailer</em></li>
-<li>Configure each environment variable accordingly:
-<ol>
-<li><code>SERVER</code> - SMTP server IP address or hostname (e.g. Gmail, Outlook, SMTP relay-proxy, etc.)</li>
-<li><code>PORT</code> - The TCP port number for the <code>SERVER</code> variable</li>
-<li><code>AUTH</code> - Authentication method: <code>TLS</code>, <code>STARTTLS</code> or <code>NOAUTH</code></li>
-<li><code>USERNAME</code> - Provides the username when using an authentication method other than <code>NOAUTH</code>. Uncomment by the removing the double-colons <code>::</code> from its <code>SET</code> statement (e.g. <code>::SET USERNAME=username</code> becomes <code>SET USERNAME=username</code>)</li>
-<li><code>PASSWORD</code> - Provides the password when using an authentication method other than <code>NOAUTH</code>. Uncomment by the removing the double-colons <code>::</code> from its <code>SET</code> statement (e.g. <code>::SET PASSWORD=password</code> becomes <code>SET PASSWORD=password</code>)</li>
-</ol>
+<li>
+<p>Edit the script file <code>osamailer.cmd</code> with your favorite text editor</p>
 </li>
+<li>
+<p>Look for the <code>:: Configurations</code> comment</p>
+</li>
+<li>
+<p>Notice the <code>SET</code> statements which set each environment variable for <em>OSA-Mailer</em></p>
+</li>
+<li>
+<p>Configure each <em>environment variable</em> accordingly:</p>
+<div class="table-wrapper"><table><thead><tr><th>Environment Variable</th><th>Description</th><th>Mandatory*</th></tr></thead><tbody>
+<tr><td><code>SERVER</code></td><td>SMTP server IP address or hostname (e.g. Gmail, Outlook, SMTP relay-proxy, etc.)</td><td>✅</td></tr>
+<tr><td><code>PORT</code></td><td>The TCP port number for the <code>SERVER</code> variable</td><td>✅</td></tr>
+<tr><td><code>AUTH</code></td><td>Authentication method: <code>TLS</code>, <code>STARTTLS</code> or <code>NOAUTH</code></td><td>✅</td></tr>
+<tr><td><code>USERNAME</code></td><td>Provides the username when using an authentication method other than <code>NOAUTH</code></td><td>❌</td></tr>
+<tr><td><code>PASSWORD</code></td><td>Provides the password when using an authentication method other than <code>NOAUTH</code></td><td>❌</td></tr>
+</tbody></table>
+</div></li>
 </ol>
+<ul>
+<li><em>To uncomment a variable, remove the double-colons <code>::</code> from its <code>SET</code> statement (e.g. <code>::SET USERNAME=username</code> becomes <code>SET USERNAME=username</code>)</em></li>
+</ul>
 <h2 id="setup-a-task-for-windows-task-scheduler"><a class="header" href="#setup-a-task-for-windows-task-scheduler">Setup a Task for Windows Task Scheduler</a></h2>
 <p>Windows Task Scheduler can be used as a means to trigger and activate <em>OSA-Mailer</em>, but it is <strong>not</strong> a requirement in case it doesn't fit your use-case.</p>
 <h3 id="open-the-windows-task-scheduler"><a class="header" href="#open-the-windows-task-scheduler">Open the Windows Task Scheduler</a></h3>
