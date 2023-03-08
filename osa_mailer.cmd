@@ -17,7 +17,7 @@ MKDIR logs 2> NUL
 ECHO. >> %LOG_FILE%
 ECHO %START_TIME% >> %LOG_FILE%
 ECHO =================================== >> %LOG_FILE%
-osamailer.exe >> %LOG_FILE% 2>&1
+osa_mailer.exe >> %LOG_FILE% 2>&1
 
 SET EXIT_CODE=%ERRORLEVEL%
 
