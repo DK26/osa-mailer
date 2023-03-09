@@ -71,10 +71,12 @@
         <!-- Hide / unhide sidebar before it is displayed -->
         <script>
             var html = document.querySelector('html');
-            var sidebar = 'hidden';
+            var sidebar = null;
             if (document.body.clientWidth >= 1080) {
                 try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
                 sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
             }
             html.classList.remove('sidebar-visible');
             html.classList.add("sidebar-" + sidebar);
@@ -196,7 +198,7 @@
 <div style="break-before: page; page-break-before: always;"></div><h1 id="windows-setup"><a class="header" href="#windows-setup">Windows Setup</a></h1>
 <h2 id="preface-1"><a class="header" href="#preface-1">Preface</a></h2>
 <p>At this stage of the development, there is no installer.</p>
-<p>Currently the way to use <em>OSA-Mailer</em> is it have an external system to run its run script <code>osamailer.cmd</code></p>
+<p>Currently the way to use <em>OSA-Mailer</em> is it have an external system to run its run script <code>osa_mailer.cmd</code></p>
 <h2 id="download"><a class="header" href="#download">Download</a></h2>
 <p><strong>Steps:</strong></p>
 <ol>
@@ -212,7 +214,7 @@
 <li>Extract the archived file from the <code>Download</code> section anywhere you like, but make sure you will have controlled access to the extracted <code>outbox</code> directory as this directory serves clients as a gateway for sending E-mails</li>
 </ol>
 <h2 id="configure"><a class="header" href="#configure">Configure</a></h2>
-<p><code>osamailer.cmd</code> :</p>
+<p><code>osa_mailer.cmd</code> :</p>
 <pre><code class="language-batch">:: Configurations
 SET SERVER=localhost
 SET PORT=25
@@ -223,7 +225,7 @@ SET AUTH=noauth
 <p><strong>Steps:</strong></p>
 <ol>
 <li>
-<p>Edit the script file <code>osamailer.cmd</code> with your favorite text editor</p>
+<p>Edit the script file <code>osa_mailer.cmd</code> with your favorite text editor</p>
 </li>
 <li>
 <p>Look for the <code>:: Configurations</code> comment</p>
@@ -233,7 +235,7 @@ SET AUTH=noauth
 </li>
 <li>
 <p>Configure each <em>environment variable</em> accordingly:</p>
-<div class="table-wrapper"><table><thead><tr><th>Environment Variable</th><th>Description</th><th>Mandatory*</th></tr></thead><tbody>
+<div class="table-wrapper"><table><thead><tr><th>Environment Variable</th><th>Description</th><th>Mandatory</th></tr></thead><tbody>
 <tr><td><code>SERVER</code></td><td>SMTP server IP address or hostname (e.g. Gmail, Outlook, SMTP relay-proxy, etc.)</td><td>✅</td></tr>
 <tr><td><code>PORT</code></td><td>The TCP port number for the <code>SERVER</code> variable</td><td>✅</td></tr>
 <tr><td><code>AUTH</code></td><td>Authentication method: <code>TLS</code>, <code>STARTTLS</code> or <code>NOAUTH</code></td><td>✅</td></tr>
@@ -306,7 +308,7 @@ In order to open the Windows Task Schedular, we will use a <code>Run</code> comm
 </ol>
 <p><img src="images/windows_task_scheduler/task_scheduler_new_task.png" alt="Task Scheduler Create Task" /></p>
 <ol start="12">
-<li>On the <code>Triggers</code> tab, press the <code>New...</code> button to create a new trigger</li>
+<li>On the <code>Triggers</code> tab, click on the <code>New...</code> button to create a new trigger</li>
 </ol>
 <p><img src="images/windows_task_scheduler/task_scheduler_create_task_triggers.png" alt="Task Scheduler Task Triggers" /></p>
 <ol start="13">
@@ -317,9 +319,53 @@ In order to open the Windows Task Schedular, we will use a <code>Run</code> comm
 <li><strong>(Recommended)</strong>: Manually copy the value <code>1 minute</code> and assign it</li>
 <li>Make sure that <code>for a duration of:</code> is set to <code>Indefinitely</code></li>
 <li>Make sure that the <code>Enabled</code> checkbox is checked</li>
-<li>Press <code>OK</code> to the add the trigger</li>
+<li>Click on the <code>OK</code> button to the add the trigger</li>
 </ol>
 <p><img src="images/windows_task_scheduler/task_scheduler_create_task_triggers_2.png" alt="Task Scheduler New Trigger" /></p>
+<ol start="21">
+<li>Click on the <code>Actions</code> tab</li>
+</ol>
+<p><img src="images/windows_task_scheduler/task_scheduler_new_trigger.png" alt="Task Scheduler After New Trigger" /></p>
+<ol start="22">
+<li>On the <code>Actions</code> tab, click on the <code>New...</code> button to create a new action</li>
+</ol>
+<p><img src="images/windows_task_scheduler/task_scheduler_actions.png" alt="Task Scheduler New Actions" /></p>
+<ol start="23">
+<li>The <code>New Action</code> window will pop-up</li>
+<li>Under the <code>Program/script:</code>  textbox, assign the path to where the <code>osa_mailer.cmd</code> file is located</li>
+</ol>
+<ul>
+<li><strong>Optional:</strong> You can click on the <code>Browse...</code> button to locate the <code>osa_mailer.cmd</code> file</li>
+</ul>
+<ol start="25">
+<li>Click on the <code>OK</code> button to the add the action</li>
+</ol>
+<p><img src="images/windows_task_scheduler/task_scheduler_edit_action.png" alt="Task Scheduler New Actions" /></p>
+<ol start="26">
+<li>Click on the <code>Conditions</code> tab</li>
+</ol>
+<p><img src="images/windows_task_scheduler/task_scheduler_new_action.png" alt="Task Scheduler Conditions" /></p>
+<ol start="27">
+<li>Make sure that there are no conditions in place and all checkboxes are unchecked</li>
+<li>Click on the <code>Settings</code> tab</li>
+</ol>
+<p><img src="images/windows_task_scheduler/task_scheduler_conditions.png" alt="Task Scheduler Conditions" /></p>
+<ol start="29">
+<li>Make sure that only the following checkboxes are checked:
+<ol>
+<li><code>Allow task to be run on demand</code></li>
+<li><code>Run task as soon as possible after a scheduled start is missed</code></li>
+<li><code>If the running task does not end when requested, force it to stop</code></li>
+<li>Make sure that the field <code>If the task is already running, then the following rule applies:</code> has the value <code>Do not start a new instance</code> in its dropbox</li>
+<li>Make sure the rest of the checkboxes are unchecked</li>
+<li>Click on the <code>OK</code> button to create the task</li>
+</ol>
+</li>
+</ol>
+<p><img src="images/windows_task_scheduler/task_scheduler_settings.png" alt="Task Scheduler Conditions" /></p>
+<ol start="30">
+<li><em>Finished</em></li>
+</ol>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="open-source-community-vision"><a class="header" href="#open-source-community-vision">Open Source Community Vision</a></h1>
 <p>Some tools are developed in workplaces for niche use-cases that repeat between different companies, workplaces and clients, where skilled workers find themselves create, write and design the same tools over and over again, having no common standard.</p>
 <p>My vision is to create some of these tools to be publicly available for free, encourage and build an open-source community around them in order to:</p>
