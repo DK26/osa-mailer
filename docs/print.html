@@ -385,13 +385,13 @@ or one E-mail entry per one composed E-mail. It depends on your personal configu
 <h2 id="e-mail-entry-name-convention"><a class="header" href="#e-mail-entry-name-convention">E-mail Entry Name Convention</a></h2>
 <p>The following describes the current, non-binding standard for E-mail entry file name convention:</p>
 <blockquote>
-<p><strong>{<code>E-mail ID</code>}.{<code>Timestamp</code>}.{<code>Entry ID</code>}.{<code>CRC32 Checksum</code>}.json</strong></p>
+<p><strong>{<code>E-mail ID</code>}.{<code>Timestamp</code>}.{<code>Entry ID</code>}.{<code>Checksum</code>}.json</strong></p>
 </blockquote>
 <div class="table-wrapper"><table><thead><tr><th>Field</th><th>Description</th></tr></thead><tbody>
 <tr><td><code>E-mail ID</code></td><td>A unique ID to identify the E-mail, produced by hashing the <code>email</code> part of the entry, encoded in hexadecimal</td></tr>
 <tr><td><code>Timestamp</code></td><td>Creation time in nanoseconds, encoded in hexadecimal</td></tr>
 <tr><td><code>Entry ID</code></td><td>A unique ID to identify the entry, extracted from the entry itself</td></tr>
-<tr><td><code>CRC32 Checksum</code></td><td>A unique CRC32 checksum of the entire entry file, encoded in hexadecimal</td></tr>
+<tr><td><code>Checksum</code></td><td>A unique CRC32 checksum of the entire entry file, encoded in hexadecimal</td></tr>
 </tbody></table>
 </div>
 <blockquote>
