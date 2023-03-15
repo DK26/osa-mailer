@@ -152,9 +152,14 @@
                     <main>
                         <h1 id="sending-an-e-mail"><a class="header" href="#sending-an-e-mail">Sending an E-mail</a></h1>
 <p>On every run, <em>OSA-Mailer</em> is scanning its <code>outbox</code> directory for new E-mail entries.</p>
-<p>Each E-mail entry is represented as a JSON file. Once the E-mail entry is processed and sent <em><strong>successfully</strong></em>, it is deleted from the <code>outbox</code> directory.**</p>
+<p>Each E-mail entry is represented as a JSON document file. </p>
+<p>An E-mail entry can be though of as just a single <em>&quot;send E-mail&quot;</em> request that contains all details required to send it.</p>
+<p>When attempting to send multiple E-mails to the same recipients, on the same subject, having a common denominator, they are all considered to be E-mail <em>entries</em> that compose the same, single E-mail (&quot;Composed E-mail&quot;), that represents the final product to be sent to your recipients.</p>
+<p>You can have a relation of multiple E-mail entries per one composed E-mail
+or one E-mail entry per one composed E-mail. It depends on your personal configurations.</p>
+<p>Once the E-mail entry is processed and sent <em><strong>successfully</strong></em>, it is deleted from the <code>outbox</code> directory.</p>
 <blockquote>
-<p>🚨 <strong>If the <code>.json</code> entry file is not <em>deleted</em> from the <code>outbox</code> directory, then an <em>error</em> might have occurred. You can check the <code>logs</code> directory to get more details about any errors.</strong></p>
+<p>🚨 <strong>If the <code>.json</code> entry file is not <em>deleted</em> from the <code>outbox</code> directory, then an <em>error</em> might have occurred. You can check the <code>logs</code> directory to get more details about the errors.</strong></p>
 </blockquote>
 <h2 id="outbox-directory"><a class="header" href="#outbox-directory">Outbox Directory</a></h2>
 <p>In order to send an E-mail, we have to produce an E-mail entry which is a JSON document that contains all details required to send it, and place it in the <code>outbox</code> directory.</p>
@@ -173,9 +178,6 @@
 ...</p>
 </blockquote>
 <h2 id="e-mail-entry-name-convention"><a class="header" href="#e-mail-entry-name-convention">E-mail Entry Name Convention</a></h2>
-<p>An E-mail entry can be though of as just a single <em>&quot;send E-mail&quot;</em> request. When attempting to send multiple E-mails to the same recipients, on the same subject, having a common denominator, they are all considered to be <em>E-mail entries</em>, that are part of a single, composed, E-mail, that is the final product to be sent to your recipients.</p>
-<p>You can have a relation of multiple E-mail entries per one composed E-mail
-or one E-mail entry per one composed E-mail. It depends on your personal configurations.</p>
 <p>The following describes the current, non-binding standard for E-mail entry file name convention:</p>
 <blockquote>
 <p><strong>{<code>E-mail ID</code>}.{<code>Timestamp</code>}.{<code>Entry ID</code>}.{<code>CRC32 Checksum</code>}.json</strong></p>
