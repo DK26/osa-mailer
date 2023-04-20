@@ -27,6 +27,53 @@
 
 Try the [`rendit` CLI tool](https://github.com/DK26/rendit)
 
+## Supported Template Engines
+
+| Name       | Short / File Extension | Version | Guide / Manual / Tutorial                                     |
+| ---------- | ---------------------- | ------- | ------------------------------------------------------------- |
+| Tera       | `tera`                 | v1.18.1 | <https://tera.netlify.app/docs/#templates>                    |
+| Handlebars | `hbs`                  | v4.3.6  | <https://handlebarsjs.com/guide/>                             |
+| Liquid     | `liq`                  | v0.26.1 | <https://github.com/Shopify/liquid/wiki/Liquid-for-Designers> |
+
+## Quick Template Engines Guide
+
+<details>
+<summary>Tera (click to expand)</summary>
+
+* Guide: <https://tera.netlify.app/docs/#templates>  
+* Version: **v1.18.1**
+* Repository: <https://github.com/Keats/tera>
+* Alternatives: `Jinja2`, `Django`, `Liquid`, `Twig`
+  
+A highly advanced, capable and secure by default; rendering engine that follows the OWASP Top 10 guidelines.
+A good alternative choice if you are used to template engines such as `Jinja2`, `Django`, `Liquid` or `Twig`. Originated in the Rust programming language.  
+
+</details>
+
+<details>
+<summary>Handlebars (click to expand)</summary>
+
+* Guide: <https://handlebarsjs.com/guide/>  
+* Version: **v4.3.6**
+* Repository: <https://github.com/sunng87/handlebars-rust>
+* Alternatives: `Mustache`
+  
+A highly popular rendering engine that has been implemented across many programming languages. Considered to be somewhat more limited in features compared to the other engines. Originated in the Javascript programming language.
+
+</details>
+
+<details>
+<summary>Liquid (click to expand)</summary>
+
+* Guide: <https://github.com/Shopify/liquid/wiki/Liquid-for-Designers>  
+* Version: **v0.26.1**
+* Repository: <https://github.com/cobalt-org/liquid-rust>
+* Alternatives: `smarty`
+  
+A highly advanced, capable and senior rendering engine, offering some optional security capabilities. A good alternative choice if you are used to the `smarty` template engine. Originated in the Ruby programming language.
+
+</details>
+
 
 ## Prototype Note
 
