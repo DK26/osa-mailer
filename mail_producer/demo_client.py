@@ -62,7 +62,7 @@ def main():
             ],
 
             # Provide additional optional E-mail identifiers for the unique E-mail ID calculation
-            "key": ""
+            "unique_by": ""
 
         },
 
