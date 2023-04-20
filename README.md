@@ -5,12 +5,13 @@
 **Send dynamic and sophisticated E-mails using Smart Templates**
 
 [Guidebook](https://dk26.github.io/osa-mailer/) |
-[Discussions](https://github.com/DK26/osa-mailer/discussions)
-
+[Discussions](https://github.com/DK26/osa-mailer/discussions)  
 
 [![Build](https://github.com/DK26/osa-mailer/actions/workflows/general.yml/badge.svg?branch=main)](https://github.com/DK26/osa-mailer/actions/workflows/general.yml)
 [![Security Audit & License Compatibility](https://github.com/DK26/osa-mailer/actions/workflows/security-audit.yml/badge.svg?branch=main)](https://github.com/DK26/osa-mailer/actions/workflows/security-audit.yml)
 [![pages-build-deployment](https://github.com/DK26/osa-mailer/actions/workflows/pages/pages-build-deployment/badge.svg?branch=main)](https://github.com/DK26/osa-mailer/actions/workflows/pages/pages-build-deployment)  
+
+[Download Alpha 3 (i686-pc-windows)](https://github.com/DK26/osa-mailer/releases/tag/alpha-3)
 
 </div>
 
@@ -20,8 +21,6 @@
 - Automatically attaches all your HTML resources to the SMTP message
 - Provides you the ability to aggregate multiple E-mails of the same subject and recipients, into a single E-mail with accumulated context
 - Supports multiple SMTP connection types: `NOAUTH`, `TLS` and `STARTTLS`
-
-[Download Alpha 3 (i686-pc-windows)](https://github.com/DK26/osa-mailer/releases/tag/alpha-3)
 
 ## Template Designing
 
