@@ -21,7 +21,7 @@
 - Provides you the ability to aggregate multiple E-mails of the same subject and recipients, into a single E-mail with accumulated context
 - Supports multiple SMTP connection types: `NOAUTH`, `TLS` and `STARTTLS`
 
-[Download Alpha 2 (i686-pc-windows)](https://github.com/DK26/osa-mailer/releases/tag/alpha-2)
+[Download Alpha 3 (i686-pc-windows)](https://github.com/DK26/osa-mailer/releases/tag/alpha-3)
 
 ## Template Designing
 

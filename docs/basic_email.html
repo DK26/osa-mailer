@@ -160,18 +160,16 @@
     ],
     &quot;email&quot;: {
         &quot;system&quot;: &quot;My Automations System&quot;,
-        &quot;subsystem&quot;: &quot;[ID:12345] Trigger: Server Disk Out-of-Space&quot;,
-        &quot;from&quot;: &quot;Mail System &lt;tech-support@example.com&gt;&quot;,
-        &quot;to&quot;: [
-            &quot;Rick S. &lt;rick_s@example.com&gt;&quot;
-        ],
-        &quot;cc&quot;: [],
-        &quot;bcc&quot;: [],
+        &quot;subsystem&quot;: &quot;[ID:12345] Trigger: Server Disk Out-of-Storage&quot;,
+        &quot;from&quot;: &quot;Ops Auto-Mailing System &lt;tech-support@example.com&gt;&quot;,
         &quot;reply_to&quot;: [
             &quot;System Admin &lt;admin@example.com&gt;&quot;,
             &quot;Project Lead &lt;lead@example.com&gt;&quot;
         ],
-        &quot;subject&quot;: &quot;Warning: Your server's disk is out-of-space&quot;,
+        &quot;to&quot;: [ &quot;Rick S. &lt;rick_s@example.com&gt;&quot; ],
+        &quot;cc&quot;: [],
+        &quot;bcc&quot;: [],
+        &quot;subject&quot;: &quot;ATTENTION! Your server is out-of-storage&quot;,
         &quot;template&quot;: &quot;ops_department&quot;,
         &quot;alternative_content&quot;: &quot;Unable to render HTML. Please refer to the Ops department for details.&quot;,
         &quot;attachments&quot;: [],
