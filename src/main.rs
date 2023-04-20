@@ -118,7 +118,7 @@ fn main() -> anyhow::Result<()> {
                 //     .content(&html_payload, Some(&email_template_images_root))
                 //     .attachments(&attachments);
 
-                let Ok(message) = send::MessageBuilder::new()
+                let message = match send::MessageBuilder::new()
                     .from(&email.header.from)
                     .to_addresses(&to)
                     .cc_addresses(&cc)
@@ -128,13 +128,26 @@ fn main() -> anyhow::Result<()> {
                     .alternative_content(&email.header.alternative_content)
                     .content(&html_payload, Some(&email_template_images_root))
                     .attachments(&attachments)
-                    .build() else {continue;}; // We'd like to skip erroneous E-mail entries
+                    .build()
+                {
+                    Ok(v) => v,
+                    Err(e) => {
+                        eprintln!("{:?}", e);
+                        continue;
+                    }
+                };
 
                 // Lower privilege.
                 // let connection = connection;
 
                 // Convert to Lettre Message & Send E-mail
-                let Ok(message) = message.try_into() else {continue};
+                let message = match message.try_into() {
+                    Ok(v) => v,
+                    Err(e) => {
+                        eprintln!("{:?}", e);
+                        continue;
+                    }
+                };
 
                 match connection.send(message) {
                     Ok(_) => {
