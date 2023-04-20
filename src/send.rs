@@ -3,7 +3,7 @@ use lazy_static::lazy_static;
 use anyhow::{anyhow, Context, Result};
 use lettre::address::AddressError;
 use lettre::message::Message as LettreMessage;
-use lettre::message::{header, Attachment, Body, MessageBuilder, MultiPart, SinglePart};
+use lettre::message::{header, Attachment, Body, MultiPart, SinglePart};
 use lettre::{SmtpTransport, Transport};
 
 use lettre::transport::smtp::authentication::Credentials;
@@ -14,6 +14,8 @@ use std::fs;
 use std::path::Path;
 use std::str::FromStr;
 use std::time::Duration;
+
+type LettreMessageBuilder = lettre::message::MessageBuilder;
 
 lazy_static! {
     static ref HTML_SRC_PATTERN: Regex =
@@ -162,13 +164,13 @@ impl MultiPartHtmlWithImages for MultiPart {
 }
 
 pub trait MultipleAddressParser {
-    fn to_addresses(self, addresses: &str) -> Result<MessageBuilder, AddressError>;
-    fn cc_addresses(self, addresses: &str) -> Result<MessageBuilder, AddressError>;
-    fn bcc_addresses(self, addresses: &str) -> Result<MessageBuilder, AddressError>;
-    fn reply_to_addresses(self, addresses: &str) -> Result<MessageBuilder, AddressError>;
+    fn to_addresses(self, addresses: &str) -> Result<LettreMessageBuilder, AddressError>;
+    fn cc_addresses(self, addresses: &str) -> Result<LettreMessageBuilder, AddressError>;
+    fn bcc_addresses(self, addresses: &str) -> Result<LettreMessageBuilder, AddressError>;
+    fn reply_to_addresses(self, addresses: &str) -> Result<LettreMessageBuilder, AddressError>;
 }
 
-impl MultipleAddressParser for MessageBuilder {
+impl MultipleAddressParser for LettreMessageBuilder {
     fn to_addresses(mut self, addresses: &str) -> Result<Self, AddressError> {
         for address in split(addresses) {
             self = self.to(address.parse()?);
@@ -190,7 +192,7 @@ impl MultipleAddressParser for MessageBuilder {
         Ok(self)
     }
 
-    fn reply_to_addresses(mut self, addresses: &str) -> Result<MessageBuilder, AddressError> {
+    fn reply_to_addresses(mut self, addresses: &str) -> Result<LettreMessageBuilder, AddressError> {
         for address in split(addresses) {
             self = self.reply_to(address.parse()?);
         }
@@ -366,17 +368,135 @@ impl<'relay> SmtpConnectionBuilder<'relay> {
     }
 }
 
+#[derive(Debug, Default, Clone)]
+pub struct MessageBuilder<'a> {
+    from: Option<&'a str>,
+    reply_to_addresses: Option<&'a str>,
+    in_reply_to: Option<String>,
+    to_addresses: Option<&'a str>,
+    cc_addresses: Option<&'a str>,
+    bcc_addresses: Option<&'a str>,
+    subject: Option<&'a str>,
+    content: Option<&'a str>,
+    resources_path: Option<&'a Path>,
+    alternative_content: Option<&'a str>,
+    attachments: Option<&'a str>,
+}
+
+impl<'a> MessageBuilder<'a> {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn from(&mut self, address: &'a str) -> &mut Self {
+        self.from = Some(address);
+        self
+    }
+
+    pub fn reply_to_addresses(&mut self, addresses: &'a str) -> &mut Self {
+        self.reply_to_addresses = Some(addresses);
+        self
+    }
+
+    pub fn in_reply_to(&mut self, id: String) -> &mut Self {
+        self.in_reply_to = Some(id);
+        self
+    }
+
+    pub fn to_addresses(&mut self, addresses: &'a str) -> &mut Self {
+        self.to_addresses = Some(addresses);
+        self
+    }
+
+    pub fn cc_addresses(&mut self, addresses: &'a str) -> &mut Self {
+        self.cc_addresses = Some(addresses);
+        self
+    }
+
+    pub fn bcc_addresses(&mut self, addresses: &'a str) -> &mut Self {
+        self.bcc_addresses = Some(addresses);
+        self
+    }
+
+    pub fn subject(&mut self, subject: &'a str) -> &mut Self {
+        self.subject = Some(subject);
+        self
+    }
+
+    pub fn content(&mut self, content: &'a str, resources_path: Option<&'a Path>) -> &mut Self {
+        self.content = Some(content);
+        self.resources_path = resources_path;
+        self
+    }
+
+    pub fn alternative_content(&mut self, content: &'a str) -> &mut Self {
+        self.content = Some(content);
+        self
+    }
+
+    pub fn attachments(&mut self, attachments: &'a str) -> &mut Self {
+        self.attachments = Some(attachments);
+        self
+    }
+
+    pub fn build(&self) -> Result<Message> {
+        let mut new_message = Message::new();
+
+        if let Some(address) = self.from {
+            new_message = new_message.from(address)?;
+        }
+
+        if let Some(addresses) = self.reply_to_addresses {
+            new_message = new_message.reply_to_addresses(addresses)?;
+        }
+
+        if let Some(ref id) = self.in_reply_to {
+            new_message = new_message.in_reply_to(id.clone());
+        }
+
+        if let Some(addresses) = self.to_addresses {
+            new_message = new_message.to_addresses(addresses)?;
+        }
+
+        if let Some(addresses) = self.cc_addresses {
+            new_message = new_message.cc_addresses(addresses)?;
+        }
+
+        if let Some(addresses) = self.bcc_addresses {
+            new_message = new_message.bcc_addresses(addresses)?;
+        }
+
+        if let Some(subject) = self.subject {
+            new_message = new_message.subject(subject);
+        }
+
+        if let Some(content) = self.content {
+            new_message = new_message.content(content, self.resources_path)?;
+        }
+
+        if let Some(content) = self.alternative_content {
+            new_message = new_message.alternative_content(content);
+        }
+
+        if let Some(attachments) = self.attachments {
+            new_message = new_message.attachments(attachments)?;
+        }
+
+        Ok(new_message)
+    }
+}
+
 /// Contains all contents of an E-Mail to be sent later.
 #[derive(Debug, Default, Clone)]
 pub struct Message {
-    message_builder: MessageBuilder,
+    message_builder: LettreMessageBuilder,
     content: Option<MultiPart>,
     alternative_content: Option<SinglePart>,
     attachments: Option<MultiPart>,
 }
 
 impl Message {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self::default()
     }
 
@@ -389,10 +509,10 @@ impl Message {
         Ok(self)
     }
 
-    pub fn reply_to_addresses(mut self, address: &str) -> Result<Self> {
+    pub fn reply_to_addresses(mut self, addresses: &str) -> Result<Self> {
         self.message_builder = self
             .message_builder
-            .reply_to_addresses(address)
+            .reply_to_addresses(addresses)
             .context("Unable to parse `reply_to` address(es)")?;
         Ok(self)
     }

@@ -106,8 +106,19 @@ fn main() -> anyhow::Result<()> {
                 let reply_to = email.header.reply_to.join(", ");
                 let attachments = email.header.attachments.join(", ");
 
-                // Send E-mail
-                let message = send::Message::new()
+                // Build E-mail
+                // let message = send::Message::new()
+                //     .from(&email.header.from)
+                //     .to_addresses(&to)
+                //     .cc_addresses(&cc)
+                //     .bcc_addresses(&bcc)
+                //     .reply_to_addresses(&reply_to)
+                //     .subject(&email.header.subject)
+                //     .alternative_content(&email.header.alternative_content)
+                //     .content(&html_payload, Some(&email_template_images_root))
+                //     .attachments(&attachments);
+
+                let Ok(message) = send::MessageBuilder::new()
                     .from(&email.header.from)
                     .to_addresses(&to)
                     .cc_addresses(&cc)
@@ -116,11 +127,16 @@ fn main() -> anyhow::Result<()> {
                     .subject(&email.header.subject)
                     .alternative_content(&email.header.alternative_content)
                     .content(&html_payload, Some(&email_template_images_root))
-                    .attachments(&attachments);
+                    .attachments(&attachments)
+                    .build() else {continue;}; // We'd like to skip erroneous E-mail entries
 
                 // Lower privilege.
                 // let connection = connection;
-                match connection.send(message.into()) {
+
+                // Convert to Lettre Message & Send E-mail
+                let Ok(message) = message.try_into() else {continue};
+
+                match connection.send(message) {
                     Ok(_) => {
                         println!("Email sent successfully!");
 
