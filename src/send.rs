@@ -59,12 +59,12 @@ fn get_path(path: impl AsRef<Path>, root_dir: Option<&Path>) -> RelativePath {
 pub trait MultiPartAttachments {
     // TODO: Attach content from within the code, contained an owned Vec[u8] + Case for Base64
     // TODO: Replace return value with Result<MultiPart>
-    fn attachments(attachments: &str) -> Option<MultiPart>;
+    fn attachments(attachments: &str) -> Result<Option<MultiPart>>;
 }
 
 impl MultiPartAttachments for MultiPart {
     /// Build a MultiPart loaded with attachments from the given multiple paths (separated by `;` or `,`).
-    fn attachments(paths: &str) -> Option<MultiPart> {
+    fn attachments(paths: &str) -> Result<Option<MultiPart>> {
         // let mut file_data;
         let mut file_contents_body;
         let mut file_content_type;
@@ -85,7 +85,7 @@ impl MultiPartAttachments for MultiPart {
                             file_contents_body,
                             file_content_type
                                 .parse()
-                                .expect("Unable to parse attached file content type"),
+                                .context("Unable to parse attached file content type")?,
                         );
 
                     multi_part = Some(match multi_part {
@@ -102,15 +102,15 @@ impl MultiPartAttachments for MultiPart {
                 }
             }
         }
-        multi_part
+        Ok(multi_part)
     }
 }
 
 pub trait MultiPartHtmlWithImages {
-    fn html_with_images(html_contents: &str, resources_path: Option<&Path>) -> MultiPart;
+    fn html_with_images(html_contents: &str, resources_path: Option<&Path>) -> Result<MultiPart>;
 }
 impl MultiPartHtmlWithImages for MultiPart {
-    fn html_with_images(html_contents: &str, resources_path: Option<&Path>) -> MultiPart {
+    fn html_with_images(html_contents: &str, resources_path: Option<&Path>) -> Result<MultiPart> {
         // TODO: Detect render engine and pick accordingly
         // TODO: then, remove all comments from the final HTML + Optimize HTML size
 
@@ -147,17 +147,17 @@ impl MultiPartHtmlWithImages for MultiPart {
         );
 
         for (cid, mime, full_file_path) in images {
-            let image_data = fs::read(full_file_path).expect("Error reading image");
+            let image_data = fs::read(full_file_path).context("Error reading image")?;
             let image_body = Body::new(image_data);
             multi_part = multi_part.singlepart(
                 Attachment::new_inline(cid).body(
                     image_body,
                     mime.parse()
-                        .expect("Unable to parse attached image content type"),
+                        .context("Unable to parse attached image content type")?,
                 ),
             )
         }
-        multi_part
+        Ok(multi_part)
     }
 }
 
@@ -380,19 +380,21 @@ impl Message {
         Self::default()
     }
 
-    pub fn from(mut self, address: &str) -> Self {
-        self.message_builder = self
-            .message_builder
-            .from(address.parse().expect("Unable to parse `from` address(es)"));
-        self
+    pub fn from(mut self, address: &str) -> Result<Self> {
+        self.message_builder = self.message_builder.from(
+            address
+                .parse()
+                .context("Unable to parse `from` address(es)")?,
+        );
+        Ok(self)
     }
 
-    pub fn reply_to_addresses(mut self, address: &str) -> Self {
+    pub fn reply_to_addresses(mut self, address: &str) -> Result<Self> {
         self.message_builder = self
             .message_builder
             .reply_to_addresses(address)
-            .expect("Unable to parse `reply_to` address(es)");
-        self
+            .context("Unable to parse `reply_to` address(es)")?;
+        Ok(self)
     }
 
     pub fn in_reply_to(mut self, id: String) -> Self {
@@ -400,28 +402,28 @@ impl Message {
         self
     }
 
-    pub fn to_addresses(mut self, addresses: &str) -> Self {
+    pub fn to_addresses(mut self, addresses: &str) -> Result<Self> {
         self.message_builder = self
             .message_builder
             .to_addresses(addresses)
-            .expect("Unable to parse `to` address(es)");
-        self
+            .context("Unable to parse `to` address(es)")?;
+        Ok(self)
     }
 
-    pub fn cc_addresses(mut self, addresses: &str) -> Self {
+    pub fn cc_addresses(mut self, addresses: &str) -> Result<Self> {
         self.message_builder = self
             .message_builder
             .cc_addresses(addresses)
-            .expect("Unable to parse `cc` address(es)");
-        self
+            .context("Unable to parse `cc` address(es)")?;
+        Ok(self)
     }
 
-    pub fn bcc_addresses(mut self, addresses: &str) -> Self {
+    pub fn bcc_addresses(mut self, addresses: &str) -> Result<Self> {
         self.message_builder = self
             .message_builder
             .bcc_addresses(addresses)
-            .expect("Unable to parse `bcc` address(es)");
-        self
+            .context("Unable to parse `bcc` address(es)")?;
+        Ok(self)
     }
 
     pub fn subject(mut self, subject: &str) -> Self {
@@ -429,9 +431,9 @@ impl Message {
         self
     }
 
-    pub fn content(mut self, content: &str, resources_path: Option<&Path>) -> Self {
-        self.content = Some(MultiPart::html_with_images(content, resources_path));
-        self
+    pub fn content(mut self, content: &str, resources_path: Option<&Path>) -> Result<Self> {
+        self.content = Some(MultiPart::html_with_images(content, resources_path)?);
+        Ok(self)
     }
 
     pub fn alternative_content(mut self, content: &str) -> Self {
@@ -444,15 +446,54 @@ impl Message {
         self
     }
 
-    pub fn attachments(mut self, attachments: &str) -> Self {
+    pub fn attachments(mut self, attachments: &str) -> Result<Self> {
         // self.attachments = Some(MultiPart::attachments(attachments));
-        self.attachments = MultiPart::attachments(attachments);
-        self
+        self.attachments = MultiPart::attachments(attachments)?;
+        Ok(self)
     }
 }
 
-impl std::convert::From<Message> for LettreMessage {
-    fn from(message: Message) -> Self {
+// impl std::convert::From<Message> for LettreMessage {
+//     fn from(message: Message) -> Self {
+//         let mut multipart: Option<MultiPart> = None;
+
+//         if let Some(alternative_content) = message.alternative_content {
+//             multipart = Some(MultiPart::alternative().singlepart(alternative_content));
+//         }
+
+//         if let Some(content) = message.content {
+//             multipart = if let Some(parts) = multipart {
+//                 Some(parts.multipart(content))
+//             } else {
+//                 Some(content)
+//             };
+//         }
+
+//         if let Some(attachments) = message.attachments {
+//             multipart = if let Some(parts) = multipart {
+//                 Some(MultiPart::mixed().multipart(parts).multipart(attachments))
+//             } else {
+//                 Some(attachments)
+//             };
+//         }
+
+//         message
+//             .message_builder
+//             .multipart(multipart.unwrap_or_else(|| {
+//                 MultiPart::mixed().singlepart(
+//                     SinglePart::builder()
+//                         .header(header::ContentType::TEXT_PLAIN)
+//                         .body(String::new()), // Empty E-mail if no contents were given
+//                 )
+//             }))
+//             .expect("Unable to create a message multi-part")
+//     }
+// }
+
+impl std::convert::TryFrom<Message> for LettreMessage {
+    type Error = anyhow::Error;
+
+    fn try_from(message: Message) -> std::result::Result<Self, Self::Error> {
         let mut multipart: Option<MultiPart> = None;
 
         if let Some(alternative_content) = message.alternative_content {
@@ -475,7 +516,7 @@ impl std::convert::From<Message> for LettreMessage {
             };
         }
 
-        message
+        let built_message = message
             .message_builder
             .multipart(multipart.unwrap_or_else(|| {
                 MultiPart::mixed().singlepart(
@@ -484,7 +525,8 @@ impl std::convert::From<Message> for LettreMessage {
                         .body(String::new()), // Empty E-mail if no contents were given
                 )
             }))
-            .expect("Unable to create a message multi-part")
+            .context("Unable to create a message multi-part")?;
+        Ok(built_message)
     }
 }
 
@@ -538,14 +580,14 @@ impl<'a> Connection<'a> {
     //         .build();
     // }
 
-    pub fn establish(&mut self, credentials: Option<Credentials>) {
+    pub fn establish(&mut self, credentials: Option<Credentials>) -> Result<()> {
         let connection = match self.auth {
             Authentication::NoAuth => SmtpTransport::builder_dangerous(self.relay_server)
                 .port(self.port)
                 .build(),
             Authentication::Tls => {
                 let mut smtp_builder = SmtpTransport::relay(self.relay_server)
-                    .expect("Failed to establish `TLS` connection with the provided mail relay");
+                    .context("Failed to establish `TLS` connection with the provided mail relay")?;
 
                 if let Some(passed_credentials) = credentials {
                     smtp_builder = smtp_builder.credentials(passed_credentials);
@@ -556,9 +598,9 @@ impl<'a> Connection<'a> {
                     .build()
             }
             Authentication::Starttls => {
-                let mut smtp_builder = SmtpTransport::starttls_relay(self.relay_server).expect(
+                let mut smtp_builder = SmtpTransport::starttls_relay(self.relay_server).context(
                     "Failed to establish `STARTTLS` connection with the provided mail relay",
-                );
+                )?;
 
                 if let Some(passed_credentials) = credentials {
                     smtp_builder = smtp_builder.credentials(passed_credentials);
@@ -579,6 +621,7 @@ impl<'a> Connection<'a> {
         // .build();
 
         self.connection = Some(connection);
+        Ok(())
     }
 
     /// Send a lettre Message object downstream
