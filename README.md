@@ -22,10 +22,6 @@
 - Provides you the ability to aggregate multiple E-mails of the same subject and recipients, into a single E-mail with accumulated context
 - Supports multiple SMTP connection types: `NOAUTH`, `TLS` and `STARTTLS`
 
-## Template Designing
-
-Try the [`rendit` CLI tool](https://github.com/DK26/rendit)
-
 ## Supported Template Engines
 
 | Name       | Short / File Extension | Version | Guide / Manual / Tutorial                                     |
@@ -73,6 +69,9 @@ A highly advanced, capable and senior rendering engine, offering some optional s
 
 </details>
 
+## Template Design & Preview
+
+Try the [`rendit` CLI tool](https://github.com/DK26/rendit)
 
 ## Prototype Note
 
