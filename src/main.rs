@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate lazy_static;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::Context;
 use lettre::transport::smtp::authentication::Credentials;
 use std::{env, fs, rc::Rc};
 

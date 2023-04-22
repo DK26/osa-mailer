@@ -3,6 +3,7 @@ use lazy_static::lazy_static;
 use anyhow::{anyhow, Context, Result};
 use lettre::address::AddressError;
 use lettre::message::Message as LettreMessage;
+use lettre::message::MessageBuilder as LettreMessageBuilder;
 use lettre::message::{header, Attachment, Body, MultiPart, SinglePart};
 use lettre::{SmtpTransport, Transport};
 
@@ -14,8 +15,6 @@ use std::fs;
 use std::path::Path;
 use std::str::FromStr;
 use std::time::Duration;
-
-type LettreMessageBuilder = lettre::message::MessageBuilder;
 
 lazy_static! {
     static ref HTML_SRC_PATTERN: Regex =
