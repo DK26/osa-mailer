@@ -11,14 +11,16 @@ pub struct RelativePath {
 }
 
 impl RelativePath {
-    // TODO: Add error for case where the library failed to find executable location.
-    pub fn new(path: impl AsRef<Path>) -> Self {
-        let exe_dir = current_exe().unwrap().parent().unwrap().to_owned();
+    pub fn new(path: impl AsRef<Path>) -> Result<Self, std::io::Error> {
+        let exe_dir = current_exe()?
+            .parent()
+            .unwrap() // a binary file path always has a parent
+            .to_owned();
 
-        Self {
+        Ok(Self {
             relative_path: path.as_ref().to_owned(),
             full_path: exe_dir.join(path),
-        }
+        })
     }
 
     /// Sets the current working directory from which relative paths generate full paths.

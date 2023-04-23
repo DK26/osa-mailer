@@ -47,14 +47,14 @@ fn get_mime(filepath: impl AsRef<Path>) -> String {
 }
 
 #[inline]
-fn get_path(path: impl AsRef<Path>, root_dir: Option<&Path>) -> RelativePath {
-    let mut relative_path = RelativePath::new(path);
+fn get_path(path: impl AsRef<Path>, root_dir: Option<&Path>) -> std::io::Result<RelativePath> {
+    let mut relative_path = RelativePath::new(path)?;
 
     if let Some(root_path) = root_dir {
         relative_path = relative_path.cwd(root_path);
     }
 
-    relative_path
+    Ok(relative_path)
 }
 
 pub trait MultiPartAttachments {
@@ -112,7 +112,6 @@ pub trait MultiPartHtmlWithImages {
 }
 impl MultiPartHtmlWithImages for MultiPart {
     fn html_with_images(html_contents: &str, resources_path: Option<&Path>) -> Result<MultiPart> {
-        // TODO: Detect render engine and pick accordingly
         // TODO: then, remove all comments from the final HTML + Optimize HTML size
 
         let mut html_image_embedded = html_contents.to_owned();
@@ -148,7 +147,7 @@ impl MultiPartHtmlWithImages for MultiPart {
         );
 
         for (cid, mime, full_file_path) in images {
-            let image_data = fs::read(full_file_path).context("Error reading image")?;
+            let image_data = fs::read(full_file_path?).context("Error reading image")?;
             let image_body = Body::new(image_data);
             multi_part = multi_part.singlepart(
                 Attachment::new_inline(cid).body(
