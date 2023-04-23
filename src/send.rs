@@ -32,8 +32,19 @@ fn split(input: &str) -> impl Iterator<Item = &str> {
 }
 
 #[inline]
-fn owned_filename_string(path: &Path) -> String {
-    path.file_name().unwrap().to_str().unwrap().to_owned()
+fn owned_filename_string(path: &Path) -> Result<String> {
+    let string_filename = path
+        .file_name()
+        .with_context(|| {
+            format!(
+                "Unable to get filename from path `{}`.",
+                path.to_string_lossy()
+            )
+        })?
+        .to_str()
+        .unwrap()
+        .to_owned();
+    Ok(string_filename)
 }
 
 #[inline]
@@ -59,7 +70,6 @@ fn get_path(path: impl AsRef<Path>, root_dir: Option<&Path>) -> std::io::Result<
 
 pub trait MultiPartAttachments {
     // TODO: Attach content from within the code, contained an owned Vec[u8] + Case for Base64
-    // TODO: Replace return value with Result<MultiPart>
     fn attachments(attachments: &str) -> Result<Option<MultiPart>>;
 }
 
@@ -81,13 +91,21 @@ impl MultiPartAttachments for MultiPart {
                     file_contents_body = Body::new(fd);
                     file_content_type = get_mime(attachment_path);
 
-                    let attachment_part = Attachment::new(owned_filename_string(attachment_path))
-                        .body(
-                            file_contents_body,
-                            file_content_type
-                                .parse()
-                                .context("Unable to parse attached file content type")?,
-                        );
+                    let attachment_filename = match owned_filename_string(attachment_path) {
+                        Ok(v) => v,
+                        Err(e) => {
+                            // Unable to get filename? Skip attachment file and report the error
+                            eprintln!("{e:?}");
+                            continue;
+                        }
+                    };
+
+                    let attachment_part = Attachment::new(attachment_filename).body(
+                        file_contents_body,
+                        file_content_type
+                            .parse()
+                            .context("Unable to parse attached file content type")?,
+                    );
 
                     multi_part = Some(match multi_part {
                         None => MultiPart::mixed().singlepart(attachment_part),
@@ -123,9 +141,10 @@ impl MultiPartHtmlWithImages for MultiPart {
         let mut images = Vec::new();
 
         for (i, cap) in caps.enumerate() {
-            let filename = cap.get(1).unwrap().as_str();
+            let Some(filename) = cap.get(1) else { continue;};
+            let filename = filename.as_str();
 
-            let full_file_path = get_path(filename, resources_path);
+            let full_file_path = get_path(filename, resources_path)?;
 
             let mime = get_mime(filename);
 
@@ -147,7 +166,7 @@ impl MultiPartHtmlWithImages for MultiPart {
         );
 
         for (cid, mime, full_file_path) in images {
-            let image_data = fs::read(full_file_path?).context("Error reading image")?;
+            let image_data = fs::read(full_file_path).context("Error reading image")?;
             let image_body = Body::new(image_data);
             multi_part = multi_part.singlepart(
                 Attachment::new_inline(cid).body(
