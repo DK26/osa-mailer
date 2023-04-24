@@ -38,7 +38,7 @@ impl ErrorReport {
     }
 
     #[inline]
-    pub fn add_error<E: Error + 'static>(&mut self, error: E) {
+    pub fn add_error<E: Error + Send + Sync + 'static>(&mut self, error: E) {
         self.errors.push(Box::new(error));
     }
 
