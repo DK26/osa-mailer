@@ -1,3 +1,4 @@
+mod app;
 mod entries;
 mod errors;
 mod render;
