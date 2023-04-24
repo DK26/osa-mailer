@@ -19,23 +19,6 @@ const ENTRY_DIR: &str = "outbox";
 const ENTRY_EXT: &str = ".json";
 const TEMPLATE_DIR: &str = "templates";
 
-#[derive(Debug, Clone)]
-struct EntryError {
-    entry: Rc<Entry>,
-    errors: Vec<Rc<anyhow::Error>>,
-}
-
-#[derive(Debug, Clone)]
-struct ErrorReport {
-    entries: Vec<EntryError>,
-}
-#[derive(Debug)]
-struct AppState {
-    error_report: ErrorReport,
-}
-
-impl AppState {}
-
 fn main() -> anyhow::Result<()> {
     let current_exe =
         env::current_exe().context("Unable to get the current binary file from the OS.")?;
