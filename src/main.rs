@@ -2,6 +2,7 @@
 extern crate lazy_static;
 
 use anyhow::Context;
+use entries::Entry;
 use lettre::transport::smtp::authentication::Credentials;
 use std::{env, fs, rc::Rc};
 
@@ -17,6 +18,23 @@ mod send;
 const ENTRY_DIR: &str = "outbox";
 const ENTRY_EXT: &str = ".json";
 const TEMPLATE_DIR: &str = "templates";
+
+#[derive(Debug, Clone)]
+struct EntryError {
+    entry: Rc<Entry>,
+    errors: Vec<Rc<anyhow::Error>>,
+}
+
+#[derive(Debug, Clone)]
+struct ErrorReport {
+    entries: Vec<EntryError>,
+}
+#[derive(Debug)]
+struct AppState {
+    error_report: ErrorReport,
+}
+
+impl AppState {}
 
 fn main() -> anyhow::Result<()> {
     let current_exe =
@@ -39,7 +57,7 @@ fn main() -> anyhow::Result<()> {
 
     println!(
         "composed_emails = {}",
-        serde_json::to_string_pretty(&composed_emails).unwrap()
+        serde_json::to_string_pretty(&composed_emails).unwrap() // TODO: Replace with ErrorReport
     );
 
     let templates_path = current_exe_dir.join(TEMPLATE_DIR);

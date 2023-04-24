@@ -48,13 +48,26 @@ fn owned_filename_string(path: &Path) -> Result<String> {
 }
 
 #[inline]
-fn get_mime(filepath: impl AsRef<Path>) -> String {
-    // TODO: Considering using the `infer` crate instead and `mime_guess` as fallback.
-    mime_guess::from_path(filepath)
-        .first()
-        .unwrap()
-        .as_ref()
-        .to_owned()
+/// Infers the MIME-Type of a given filepath.
+/// Unknown MIME-Types are currently set to `application/octet-stream`.
+/// ## Error
+/// Fails if unable to load file path.
+fn get_mime(filepath: impl AsRef<Path>) -> std::io::Result<&'static str> {
+    // mime_guess::from_path(filepath)
+    //     .first()
+    //     .unwrap()
+    //     .as_ref()
+    //     .to_owned();
+
+    let inferred_mime_type = infer::get_from_path(&filepath)?;
+
+    let mime_type = if let Some(known_type) = inferred_mime_type {
+        known_type.mime_type()
+    } else {
+        // Either fallback to MIME Guess or `application/octet-stream`
+        "application/octet-stream"
+    };
+    Ok(mime_type)
 }
 
 #[inline]
@@ -89,7 +102,14 @@ impl MultiPartAttachments for MultiPart {
                 Ok(fd) => {
                     // file_data = fs::read(attachment_path).expect("File not found");
                     file_contents_body = Body::new(fd);
-                    file_content_type = get_mime(attachment_path);
+                    file_content_type = match get_mime(attachment_path) {
+                        Ok(mime_type) => mime_type,
+                        Err(e) => {
+                            // Unable to determine the MIME type? Skip attachment file and report the error
+                            eprintln!("{e:?}");
+                            continue;
+                        }
+                    };
 
                     let attachment_filename = match owned_filename_string(attachment_path) {
                         Ok(v) => v,
@@ -104,7 +124,7 @@ impl MultiPartAttachments for MultiPart {
                         file_contents_body,
                         file_content_type
                             .parse()
-                            .context("Unable to parse attached file content type")?,
+                            .context("Unable to parse attached file content type")?, // FIXME: Skip iteration instead of return
                     );
 
                     multi_part = Some(match multi_part {
@@ -131,6 +151,8 @@ pub trait MultiPartHtmlWithImages {
 impl MultiPartHtmlWithImages for MultiPart {
     fn html_with_images(html_contents: &str, resources_path: Option<&Path>) -> Result<MultiPart> {
         // TODO: then, remove all comments from the final HTML + Optimize HTML size
+        // TODO: 24.04.2023: Handle all `?` propagators that are within loops, to simply skip the loop
+        // TODO:         -- Maybe create an iterator objects that tracks errors
 
         let mut html_image_embedded = html_contents.to_owned();
 
@@ -146,7 +168,10 @@ impl MultiPartHtmlWithImages for MultiPart {
 
             let full_file_path = get_path(filename, resources_path)?;
 
-            let mime = get_mime(filename);
+            let mime = match get_mime(filename) {
+                Ok(mime_type) => mime_type,
+                Err(e) => continue,
+            };
 
             let cid = format!("image_{i}");
 
@@ -166,13 +191,21 @@ impl MultiPartHtmlWithImages for MultiPart {
         );
 
         for (cid, mime, full_file_path) in images {
+            // let mime = match mime {
+            //     Ok(mime_type) => mime_type,
+            //     Err(e) => {
+            //         // Unable to determine the MIME type? Skip attachment file and report the error
+            //         eprintln!("{e:?}");
+            //         continue;
+            //     }
+            // };
             let image_data = fs::read(full_file_path).context("Error reading image")?;
             let image_body = Body::new(image_data);
             multi_part = multi_part.singlepart(
                 Attachment::new_inline(cid).body(
                     image_body,
                     mime.parse()
-                        .context("Unable to parse attached image content type")?,
+                        .context("Unable to parse attached image content type")?, // FIXME: Skip iteration instead of return
                 ),
             )
         }
