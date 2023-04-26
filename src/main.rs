@@ -64,7 +64,7 @@ fn main() -> anyhow::Result<()> {
         _ => None,
     };
 
-    connection.establish(credentials);
+    connection.establish(credentials)?;
 
     for email in composed_emails {
         let email_template_images_root = templates_path.join(&email.header.template);
