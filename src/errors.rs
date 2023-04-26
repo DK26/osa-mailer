@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use std::error::Error;
+use std::ops::Deref;
 
 use chrono::{DateTime, Utc};
 
@@ -39,6 +40,14 @@ impl<T: Error + Send + Sync + 'static> From<T> for ErrorEvent {
 /// For these cases, you'll have to use this `ErrorWrapper<E>` and maybe implement your own `From<ErrorWrapper<E>>` for
 /// the `ErrorEvent` type. Currently this is used to wrap the `anyhow::Error` type.
 pub struct ErrorWrapper<E>(E);
+
+impl<E> Deref for ErrorWrapper<E> {
+    type Target = E;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 impl From<ErrorWrapper<anyhow::Error>> for ErrorEvent {
     fn from(error: ErrorWrapper<anyhow::Error>) -> Self {
