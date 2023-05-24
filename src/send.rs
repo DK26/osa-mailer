@@ -42,7 +42,7 @@ fn owned_filename_string(path: &Path) -> Result<String> {
             )
         })?
         .to_str()
-        .unwrap()
+        .with_context(|| format!("Invalid UTF-8: `{}`", path.to_string_lossy()))?
         .to_owned();
     Ok(string_filename)
 }
