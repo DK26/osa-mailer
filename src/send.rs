@@ -37,12 +37,17 @@ fn owned_filename_string(path: &Path) -> Result<String> {
         .file_name()
         .with_context(|| {
             format!(
-                "Unable to get filename from path `{}`.",
+                "Unable to get filename from path `{}`",
                 path.to_string_lossy()
             )
         })?
         .to_str()
-        .with_context(|| format!("Invalid UTF-8: `{}`", path.to_string_lossy()))?
+        .with_context(|| {
+            format!(
+                "Unable to cheaply convert filepath `{}` from OS string to valid UTF-8 string",
+                path.to_string_lossy()
+            )
+        })?
         .to_owned();
     Ok(string_filename)
 }
