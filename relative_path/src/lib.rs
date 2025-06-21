@@ -15,10 +15,10 @@ impl RelativePath {
         let exe_dir = current_exe()?
             .parent()
             .unwrap() // a binary file path always has a parent
-            .to_owned();
+            .to_path_buf();
 
         Ok(Self {
-            relative_path: path.as_ref().to_owned(),
+            relative_path: path.as_ref().to_path_buf(),
             full_path: exe_dir.join(path),
         })
     }
@@ -26,8 +26,7 @@ impl RelativePath {
     /// Sets the current working directory from which relative paths generate full paths.
     /// Note: If the relative path contains a full path, this will be ignored.
     pub fn cwd(mut self, cwd: impl AsRef<Path>) -> Self {
-        let cwd = cwd.as_ref().to_owned();
-        self.full_path = cwd.join(&self.relative_path);
+        self.full_path = cwd.as_ref().join(&self.relative_path);
         self
     }
 }
@@ -38,18 +37,11 @@ impl std::fmt::Display for RelativePath {
     }
 }
 
-// impl std::fmt::Display for RelativePath {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         write!(f, "{}", self.relative_path.display())
-//     }
-// }
-
-// impl std::fmt::Debug for RelativePath {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         write!(f, "{}", self.full_path.display())
-//     }
-// }
-
+impl From<RelativePath> for PathBuf {
+    fn from(relative_path: RelativePath) -> Self {
+        relative_path.full_path
+    }
+}
 impl AsRef<Path> for RelativePath {
     #[inline]
     fn as_ref(&self) -> &Path {
