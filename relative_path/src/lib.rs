@@ -48,12 +48,103 @@ impl AsRef<Path> for RelativePath {
         self.full_path.as_ref()
     }
 }
-
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use std::env;
+    use std::fs::{self, File};
+    use std::io::Write;
+    use std::path::Path;
+
+    /// Helper to create a file at a given path for testing.
+    fn create_test_file(path: &Path) {
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).unwrap();
+        }
+        let mut file = File::create(path).unwrap();
+        writeln!(file, "test").unwrap();
+    }
+
     #[test]
-    fn it_works() {
-        let result = 2 + 2;
-        assert_eq!(result, 4);
+    fn resolves_relative_path_to_exe_dir() {
+        // Simulate a file relative to the executable
+        let rel = "myconfig.toml";
+        let rel_path = RelativePath::new(rel).unwrap();
+        let exe_dir = current_exe().unwrap().parent().unwrap().to_path_buf();
+        let expected = exe_dir.join(rel);
+
+        assert_eq!(rel_path.full_path, expected);
+        assert!(rel_path.full_path.is_absolute());
+    }
+
+    #[test]
+    fn resolves_relative_path_with_custom_cwd() {
+        // Use a temp directory as the cwd
+        let temp_dir = env::temp_dir().join("osa_mailer_test_cwd");
+        let _ = fs::remove_dir_all(&temp_dir);
+        fs::create_dir_all(&temp_dir).unwrap();
+
+        let rel = "subdir/file.txt";
+        let rel_path = RelativePath::new(rel).unwrap().cwd(&temp_dir);
+        let expected = temp_dir.join(rel);
+
+        assert_eq!(rel_path.full_path, expected);
+        assert!(rel_path.full_path.is_absolute());
+    }
+
+    #[test]
+    fn does_not_modify_absolute_path() {
+        // If an absolute path is provided, cwd should not affect it
+        let abs = env::temp_dir().join("absolute_file.txt");
+        let rel_path = RelativePath::new(&abs).unwrap().cwd("/should/not/use");
+        assert_eq!(rel_path.full_path, abs);
+    }
+
+    #[test]
+    fn can_access_file_using_full_path() {
+        // Actually create a file and check that the full path points to it
+        let temp_dir = env::temp_dir().join("osa_mailer_test_access");
+        let file_name = "access.txt";
+        let file_path = temp_dir.join(file_name);
+        let _ = fs::remove_dir_all(&temp_dir);
+        fs::create_dir_all(&temp_dir).unwrap();
+        create_test_file(&file_path);
+
+        let rel_path = RelativePath::new(file_name).unwrap().cwd(&temp_dir);
+        assert!(rel_path.full_path.exists());
+        assert_eq!(rel_path.full_path, file_path);
+    }
+
+    #[test]
+    fn handles_dot_and_dotdot_components() {
+        let temp_dir = env::temp_dir().join("osa_mailer_test_dot");
+        let _ = fs::remove_dir_all(&temp_dir);
+        fs::create_dir_all(&temp_dir).unwrap();
+
+        let rel = "./foo/../bar.txt";
+        let rel_path = RelativePath::new(rel).unwrap().cwd(&temp_dir);
+        let expected = temp_dir.join(rel);
+
+        // Create the file so canonicalize() works
+        if let Some(parent) = rel_path.full_path.parent() {
+            fs::create_dir_all(parent).unwrap();
+        }
+        File::create(&rel_path.full_path).unwrap();
+
+        assert_eq!(rel_path.full_path, expected);
+        // The path should resolve correctly even with . and ..
+        assert_eq!(
+            rel_path.full_path.canonicalize().unwrap().parent().unwrap(),
+            temp_dir.canonicalize().unwrap()
+        );
+    }
+
+    #[test]
+    fn as_ref_and_into_pathbuf_are_consistent() {
+        let rel = "somefile.txt";
+        let rel_path = RelativePath::new(rel).unwrap();
+        let as_ref_path: &Path = rel_path.as_ref();
+        let into_pathbuf: PathBuf = rel_path.clone().into();
+        assert_eq!(as_ref_path, into_pathbuf.as_path());
     }
 }
