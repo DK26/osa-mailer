@@ -23,20 +23,21 @@ def new_uid() -> str:
 
 
 def main():
-    email_entry = {
+    email_request = {
 
-        # Data related to the entry #
+        # Data related to the E-mail Send Request #
 
-        # Unique ID of the entry
+        # Unique ID of the E-mail Send Request
         "id": new_uid(),
 
         # UTC ISO 8601 RFC3339
-        "utc": datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc).isoformat(),
+        "utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
 
         # E-mail addresses to notify in case of an error
         "notify_error": ["Developers <dev-team@somemail.com>"],
 
-        # E-mail header from which a unique E-mail ID is constructed to associate the E-mail entries
+        # E-mail header from which a unique E-mail ID is constructed to associate
+        # the E-mail send requests
         "email": {
 
             # Name of the external system that produced this entry
@@ -74,6 +75,7 @@ def main():
                         " Please refer to the instructions below"
             },
             "table": {
+                # `type` indicates the type of the table, which is used by the template engine to render it.
                 "type": 1,
 
                 # `+` leading sign indicates the server to `accumulate` this key element's contents.
@@ -108,10 +110,10 @@ def main():
     }
 
     # Encoded Sample
-    print(str(json_to_b64(email_entry), "utf-8"))
+    print(str(json_to_b64(email_request), "utf-8"))
 
     # Decoded Sample
-    # print(json.dumps(email_entry, separators=(',', ':')))
+    # print(json.dumps(email_request, separators=(',', ':')))
 
     # Debug
     # print("length: {}".format(len(b64)))
