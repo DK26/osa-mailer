@@ -30,6 +30,16 @@
 | Handlebars | `hbs`                  | v4.3.6  | <https://handlebarsjs.com/guide/>                             |
 | Liquid     | `liq`                  | v0.26.1 | <https://github.com/Shopify/liquid/wiki/Liquid-for-Designers> |
 
+## How it Works
+
+OSA-Mailer uses asynchronous approach for sending E-mails, sacrificing realtime notifications in favour of increasing feature capabilities. By using an asynchronous approach, OSA-Mailer can merge E-mails context of the same us recipients, and craft beautiful and sophisticated E-mails, using rendering engines.
+
+1. An external tool is creating and writing a formatted E-mail send requests into the `outbox` directory (refer to the `send_email_request` python scripts for examples)  
+2. The OSA-Mailer service is pulling every X configured seconds for new E-mail send requests in the `outbox` directory  
+3. OSA-Mailer calculates an E-mail ID for each request, effectively merging dynamic context values  
+4. It then composes an SMTP message using the provided HTML template, rendering it with the chosen rendering engine against the merged context, allowing for a dynamic E-mail creation, and automatically loads all related resources (images) used within the HTML template  
+5. It sends out the final SMTP E-mail message, using the configurations within the `osa_mailer.cmd` file  
+
 ## Quick Template Engines Guide
 
 <details>
