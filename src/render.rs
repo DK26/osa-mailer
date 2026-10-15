@@ -2,11 +2,11 @@ use anyhow::{anyhow, Context, Result};
 use enum_iterator::Sequence;
 use handlebars::Handlebars;
 use path_slash::PathExt;
-use regex::{Regex, RegexBuilder};
+use regex::RegexBuilder;
 use std::{
     borrow::{Borrow, Cow},
     ffi::{OsStr, OsString},
-    fs::{self, OpenOptions},
+    fs,
     ops::Deref,
     path::{Path, PathBuf},
     rc::Rc,
@@ -18,17 +18,14 @@ use tera::Tera;
 // TODO: Add feature: (function) Defang Values
 // TODO: Template configurations (default + selected) + support for zipped templates (Which could include license and other metadata)
 
-// A simple implementation of `% touch path` (ignores existing files)
-// Inspired by: https://doc.rust-lang.org/rust-by-example/std_misc/fs.html
-fn touch<P: AsRef<Path>>(path: P) -> Result<()> {
-    OpenOptions::new().create(true).write(true).open(path)?;
-    Ok(())
-}
-
 // This function attempts to be ignorant about any problems.
 // It just tries to figure out if a given file path location.
 // If the path doesn't exists, it assumes someone else will scream about it.
 // On failure, it just returns the original Path.
+//
+// Note: no file is ever created as a side effect (the old touch-fallback
+// could leave an empty file behind and turn a missing template into a
+// render of an empty file; plan gap G1-12).
 #[inline]
 fn new_canonicalize_path_buf<P: AsRef<Path>>(path: P) -> PathBuf {
     // Canonicalize seem to be having trouble on Windows with relative paths that include a backslash.
@@ -47,30 +44,7 @@ fn new_canonicalize_path_buf<P: AsRef<Path>>(path: P) -> PathBuf {
         // Possible failures of `fs::canonicalize`:
         //  1. path does not exist.
         //  2. A non-final component in path is not a directory.
-        Err(e) => match e.kind() {
-            std::io::ErrorKind::NotFound => match touch(&path) {
-                Ok(_) => {
-                    let res = new_canonicalize_path_buf(&path);
-                    match fs::remove_file(&res) {
-                        Ok(_) => {
-                            log::debug!(
-                                "canonicalize(): Removed touched file: \"{}\"",
-                                res.to_string_lossy()
-                            )
-                        }
-                        Err(_) => {
-                            log::error!(
-                                "canonicalize(): Unable to remove file after touch: \"{}\"",
-                                res.to_string_lossy()
-                            )
-                        }
-                    };
-                    res
-                }
-                Err(_) => path,
-            },
-            _ => path,
-        },
+        Err(_) => path,
     }
 }
 
@@ -178,33 +152,6 @@ impl Deref for AbsolutePath {
     }
 }
 
-/// Scan the template for reference to other templates, such as:
-/// `{% include %}`, `{% extend %}` or `{% import %}` calls
-#[inline]
-fn find_template_references<P: AsRef<Path>>(content: &str, cwd: Option<P>) -> Vec<AbsolutePath> {
-    let re = Regex::new(
-        r#"\{%\s+?(?:import|include|extend)\s+?"(?P<template>[a-zA-Z0-9.\-/\\_]+?)"\s.*?%\}"#,
-    )
-    .expect("Bad regex pattern.");
-
-    let mut buf: Vec<AbsolutePath> = Vec::new();
-
-    log::debug!("Scanning for template references...");
-
-    for cap in re.captures_iter(content) {
-        log::debug!("Detected reference: \"{}\"", &cap["template"]);
-        // TODO: Make path relative to main template
-        let path = if let Some(p) = &cwd {
-            p.as_ref().with_file_name(&cap["template"]).into()
-        } else {
-            cap["template"].into()
-        };
-
-        buf.push(path);
-    }
-    buf
-}
-
 /// Supported template engines
 #[non_exhaustive]
 #[derive(Clone, Copy, Debug, PartialEq, Sequence, strum_macros::Display)]
@@ -248,24 +195,6 @@ impl FromStr for TemplateEngine {
 //         Ok(res)
 //     }
 // }
-
-pub fn rendered_path<P: AsRef<Path>>(input_path: P) -> PathBuf {
-    let file_extension = input_path.as_ref().extension();
-
-    match file_extension {
-        Some(os_path_ext) => {
-            let path_ext = os_path_ext.to_string_lossy().to_lowercase();
-
-            if path_ext != "none" && path_ext.parse::<TemplateEngine>().is_ok() {
-                input_path.as_ref().with_extension("")
-            } else {
-                let new_ext = format!("rendered.{path_ext}");
-                input_path.as_ref().with_extension(new_ext)
-            }
-        }
-        None => input_path.as_ref().with_extension(String::from("rendered")),
-    }
-}
 
 impl From<&str> for Template {
     /// Inspect the String contents for a magic comment `<!--template engine_name-->`, and return the appropriate `Template` enum variation for rendering.
@@ -580,4 +509,175 @@ pub(crate) fn render<'a>(
         Template::NoEngine(raw) => raw,
     };
     Ok(RenderedTemplate(result))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn context(pairs: &[(&str, serde_json::Value)]) -> serde_json::Map<String, serde_json::Value> {
+        pairs
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.clone()))
+            .collect()
+    }
+
+    fn render_contents(
+        contents: &str,
+        file_path: Option<&AbsolutePath>,
+        ctx: &[(&str, serde_json::Value)],
+    ) -> Result<String> {
+        let template_data = TemplateData {
+            contents: Rc::new(contents.to_string()),
+            file_path,
+        };
+        let context_data = ContextData {
+            context: serde_json::Value::Object(context(ctx)),
+            file_path: None,
+        };
+        render(
+            &template_data,
+            &context_data,
+            DetectionMethod::Auto,
+            TemplateExtension::Auto,
+        )
+        .map(|r| r.0.to_string())
+    }
+
+    #[test]
+    fn magic_comment_detects_tera() {
+        let rendered = render_contents(
+            "<!--template tera-->Hello {{name}}",
+            None,
+            &[("name", serde_json::json!("World"))],
+        )
+        .expect("tera render");
+        assert!(rendered.contains("Hello World"));
+    }
+
+    #[test]
+    fn magic_comment_detects_handlebars() {
+        let rendered = render_contents(
+            "<!--template handlebars-->Hi {{name}}",
+            None,
+            &[("name", serde_json::json!("World"))],
+        )
+        .expect("handlebars render");
+        assert!(rendered.contains("Hi World"));
+    }
+
+    #[test]
+    fn magic_comment_detects_liquid() {
+        let rendered = render_contents(
+            "<!--template liquid-->Hi {{ name }}",
+            None,
+            &[("name", serde_json::json!("World"))],
+        )
+        .expect("liquid render");
+        assert!(rendered.contains("Hi World"));
+    }
+
+    #[test]
+    fn no_magic_comment_is_passed_through() {
+        let rendered = render_contents("plain {{name}}", None, &[])
+            .expect("no-engine render");
+        assert_eq!(rendered.trim(), "plain {{name}}");
+    }
+
+    #[test]
+    fn unknown_magic_comment_engine_errors() {
+        let result = render_contents("<!--template pug-->x", None, &[]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn file_extension_selects_engine() {
+        let dir = std::env::temp_dir().join(format!("osa_mailer_render_ext_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+
+        let p: AbsolutePath = dir.join("t.hbs").as_path().into();
+        let rendered = render_contents("Hi {{name}}", Some(&p), &[("name", serde_json::json!("World"))])
+            .expect("hbs render");
+        assert!(rendered.contains("Hi World"));
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn forced_engine_none_is_passthrough() {
+        let template_data = TemplateData {
+            contents: Rc::new("raw {{name}}".to_string()),
+            file_path: None,
+        };
+        let context_data = ContextData {
+            context: serde_json::Value::Object(context(&[])),
+            file_path: None,
+        };
+        let rendered = render(
+            &template_data,
+            &context_data,
+            DetectionMethod::Force(TemplateEngine::None),
+            TemplateExtension::Auto,
+        )
+        .expect("forced none");
+        assert_eq!(rendered.0.as_str(), "raw {{name}}");
+    }
+
+    #[test]
+    fn canonicalizing_a_missing_path_creates_no_file() {
+        // Plan gap G1-12: the old touch-fallback could create (and possibly
+        // leave behind) a file just to resolve a path.
+        let dir =
+            std::env::temp_dir().join(format!("osa_mailer_render_touch_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+
+        let missing = dir.join("never_created.html");
+        let _abs: AbsolutePath = missing.as_path().into();
+
+        assert!(!missing.exists(), "canonicalize must not create files");
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn tera_renders_with_template_directory_on_disk() {
+        // The documented layout: `templates/<name>/template.html` with a
+        // magic comment selecting Tera (as in the shipped
+        // `templates/ops_department/template.html`).
+        let dir =
+            std::env::temp_dir().join(format!("osa_mailer_render_tera_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(dir.join("tpl")).unwrap();
+
+        let p: AbsolutePath = dir.join("tpl").join("template.html").as_path().into();
+        let rendered = render_contents(
+            "<!--template tera--><p>{{name}}</p>",
+            Some(&p),
+            &[("name", serde_json::json!("World"))],
+        )
+        .expect("tera render with dir");
+        assert!(rendered.contains("<p>World</p>"));
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn html_without_magic_comment_is_passed_through() {
+        // Documented current contract: without a recognized engine
+        // extension or magic comment the template is used as-is. (The
+        // template manifest will pin the engine explicitly, plan Phase 4.)
+        let dir =
+            std::env::temp_dir().join(format!("osa_mailer_render_raw_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(dir.join("tpl")).unwrap();
+
+        let p: AbsolutePath = dir.join("tpl").join("template.html").as_path().into();
+        let rendered = render_contents("<p>{{name}}</p>", Some(&p), &[("name", serde_json::json!("World"))])
+            .expect("render");
+        assert!(rendered.contains("{{name}}"), "no engine must not alter the template");
+
+        let _ = fs::remove_dir_all(&dir);
+    }
 }

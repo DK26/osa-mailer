@@ -28,7 +28,7 @@ pub enum EntryError {
 }
 
 #[derive(Debug)]
-pub struct ErrorEvent(DateTime<Utc>, Box<dyn Error + Send + Sync + 'static>);
+pub struct ErrorEvent(pub DateTime<Utc>, pub Box<dyn Error + Send + Sync + 'static>);
 
 impl<T: Error + Send + Sync + 'static> From<T> for ErrorEvent {
     fn from(error: T) -> Self {
@@ -39,7 +39,7 @@ impl<T: Error + Send + Sync + 'static> From<T> for ErrorEvent {
 /// There could be a special case where an error type is not implementing the `std::error::Error` type.
 /// For these cases, you'll have to use this `ErrorWrapper<E>` and maybe implement your own `From<ErrorWrapper<E>>` for
 /// the `ErrorEvent` type. Currently this is used to wrap the `anyhow::Error` type.
-pub struct ErrorWrapper<E>(E);
+pub struct ErrorWrapper<E>(pub E);
 
 impl<E> Deref for ErrorWrapper<E> {
     type Target = E;

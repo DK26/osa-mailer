@@ -9,18 +9,71 @@ use lettre::{SmtpTransport, Transport};
 
 use lettre::transport::smtp::authentication::Credentials;
 use regex::Regex;
-use relative_path::RelativePath;
 
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
-use std::time::Duration;
 
 lazy_static! {
     static ref HTML_SRC_PATTERN: Regex =
         Regex::new(r#".*?<.*?src=["']?([^;>=]+?)["']?(?:>|\s\w+=)"#).unwrap();
     static ref CSS_URL_PATTERN: Regex =
         Regex::new(r#".*?<.*?url\(["']?([^;>=]+?)["']?\)"#).unwrap();
+}
+
+/// Restricts a user-provided resource path (attachment, image, template) to stay
+/// within a trusted root directory. Absolute paths, `..` escapes and external
+/// URL schemes are rejected, so untrusted entry files can neither read nor
+/// exfiltrate arbitrary local files (plan gap G5-4).
+#[inline]
+pub fn resolve_within_root(raw: &str, root: &Path) -> Result<PathBuf> {
+    let candidate = Path::new(raw);
+
+    // Reject remote resources (`http://...`, `file://...`, etc.)
+    if candidate
+        .components()
+        .any(|c| matches!(c, std::path::Component::Prefix(_)))
+    {
+        return Err(anyhow!(
+            "External resource paths are not allowed: `{raw}`"
+        ));
+    }
+
+    if candidate.is_absolute() {
+        return Err(anyhow!(
+            "Absolute resource paths are not allowed: `{raw}`"
+        ));
+    }
+
+    let root = root
+        .canonicalize()
+        .with_context(|| format!("Resource root directory not found: {}", root.display()))?;
+
+    let mut resolved = root.clone();
+    for component in candidate.components() {
+        match component {
+            std::path::Component::ParentDir => {
+                resolved = resolved
+                    .parent()
+                    .map(|p| p.to_path_buf())
+                    .unwrap_or(resolved);
+            }
+            std::path::Component::CurDir => {}
+            other => resolved = resolved.join(other),
+        }
+    }
+
+    let resolved = resolved
+        .canonicalize()
+        .with_context(|| format!("Resource path not found: `{raw}`"))?;
+
+    if !resolved.starts_with(&root) {
+        return Err(anyhow!(
+            "Resource path escapes its root directory: `{raw}`"
+        ));
+    }
+
+    Ok(resolved)
 }
 
 #[inline]
@@ -75,39 +128,38 @@ fn get_mime(filepath: impl AsRef<Path>) -> std::io::Result<&'static str> {
     Ok(mime_type)
 }
 
-#[inline]
-fn get_path(path: impl AsRef<Path>, root_dir: Option<&Path>) -> std::io::Result<RelativePath> {
-    let mut relative_path = RelativePath::new(path)?;
-
-    if let Some(root_path) = root_dir {
-        relative_path = relative_path.cwd(root_path);
-    }
-
-    Ok(relative_path)
-}
-
 pub trait MultiPartAttachments {
     // TODO: Attach content from within the code, contained an owned Vec[u8] + Case for Base64
-    fn attachments(attachments: &str) -> Result<Option<MultiPart>>;
+    fn attachments(attachments: &str, root: &Path) -> Result<Option<MultiPart>>;
 }
 
 impl MultiPartAttachments for MultiPart {
-    /// Build a MultiPart loaded with attachments from the given multiple paths (separated by `;` or `,`).
-    fn attachments(paths: &str) -> Result<Option<MultiPart>> {
-        // let mut file_data;
+    /// Build a MultiPart loaded with attachments from the given multiple paths
+    /// (separated by `;` or `,`), each interpreted relative to `root`.
+    ///
+    /// Attachment paths are required to stay within `root` (no absolute
+    /// paths, no `..` escapes, no remote URLs); violators are skipped with a
+    /// warning instead of being attached (plan gap G5-4).
+    fn attachments(paths: &str, root: &Path) -> Result<Option<MultiPart>> {
         let mut file_contents_body;
         let mut file_content_type;
 
         let mut multi_part: Option<MultiPart> = None;
 
         for attachment in split(paths) {
-            let attachment_path = Path::new(attachment);
+            let attachment_path = match resolve_within_root(attachment, root) {
+                Ok(p) => p,
+                Err(e) => {
+                    eprintln!("Failed to attach file: \"{attachment}\". {e}");
+                    continue;
+                }
+            };
 
-            match fs::read(attachment_path) {
+            match fs::read(&attachment_path) {
                 Ok(fd) => {
                     // file_data = fs::read(attachment_path).expect("File not found");
                     file_contents_body = Body::new(fd);
-                    file_content_type = match get_mime(attachment_path) {
+                    file_content_type = match get_mime(&attachment_path) {
                         Ok(mime_type) => mime_type,
                         Err(e) => {
                             // Unable to determine the MIME type? Skip attachment file and report the error
@@ -116,7 +168,7 @@ impl MultiPartAttachments for MultiPart {
                         }
                     };
 
-                    let attachment_filename = match owned_filename_string(attachment_path) {
+                    let attachment_filename = match owned_filename_string(&attachment_path) {
                         Ok(v) => v,
                         Err(e) => {
                             // Unable to get filename? Skip attachment file and report the error
@@ -156,38 +208,76 @@ pub trait MultiPartHtmlWithImages {
 impl MultiPartHtmlWithImages for MultiPart {
     fn html_with_images(html_contents: &str, resources_path: Option<&Path>) -> Result<MultiPart> {
         // TODO: then, remove all comments from the final HTML + Optimize HTML size
-        // TODO: 24.04.2023: Handle all `?` propagators that are within loops, to simply skip the loop
-        // TODO:         -- Maybe create an iterator objects that tracks errors
 
-        let mut html_image_embedded = html_contents.to_owned();
+        // Resources resolve against the template's root directory, or the
+        // current working directory when no template root is given.
+        let resources_root = resources_path.unwrap_or_else(|| Path::new("."));
+
+        let mut images: Vec<(String, &'static str, PathBuf)> = Vec::new();
+        let mut cid_by_filename: std::collections::HashMap<String, String> =
+            std::collections::HashMap::new();
+        // (start, end, cid) spans of the matched `src`/`url()` values, to be
+        // rewritten in the final HTML.
+        let mut spans: Vec<(usize, usize, String)> = Vec::new();
 
         let caps = HTML_SRC_PATTERN
             .captures_iter(html_contents)
             .chain(CSS_URL_PATTERN.captures_iter(html_contents));
 
-        let mut images = Vec::new();
-
         for (i, cap) in caps.enumerate() {
-            let Some(filename) = cap.get(1) else { continue;};
-            let filename = filename.as_str();
+            let Some(filename_match) = cap.get(1) else {
+                continue;
+            };
+            let filename = filename_match.as_str();
 
-            let full_file_path = get_path(filename, resources_path)?;
-
-            let mime = match get_mime(filename) {
-                Ok(mime_type) => mime_type,
-                Err(e) => continue,
+            // Resolve against the resources root (containment enforced);
+            // broken references are skipped instead of failing the e-mail.
+            let full_file_path = match resolve_within_root(filename, resources_root) {
+                Ok(p) => p,
+                Err(e) => {
+                    log::debug!("Skipping image resource `{filename}`: {e}");
+                    continue;
+                }
             };
 
-            let cid = format!("image_{i}");
+            // Infer the MIME type from the resolved path, not the raw
+            // CWD-relative HTML reference.
+            let mime = match get_mime(&full_file_path) {
+                Ok(mime_type) => mime_type,
+                Err(e) => {
+                    log::debug!("Skipping image resource `{filename}`: {e}");
+                    continue;
+                }
+            };
 
-            // println!("[{cid}][{mime}][{filename}][{full_file_path:?}]");
+            let cid = match cid_by_filename.get(filename) {
+                Some(existing_cid) => existing_cid.clone(),
+                None => {
+                    let cid = format!("image_{i}");
+                    cid_by_filename.insert(filename.to_string(), cid.clone());
+                    images.push((cid.clone(), mime, full_file_path));
+                    cid
+                }
+            };
 
-            html_image_embedded = html_image_embedded.replace(filename, &format!("cid:{cid}"));
-
-            images.push((cid, mime, full_file_path));
+            spans.push((filename_match.start(), filename_match.end(), cid));
         }
 
-        // let mut multi_part = MultiPart::related().singlepart(SinglePart::html(html_image_embedded));
+        // Rewrite only the exact matched spans (never other occurrences of a
+        // similar file name), deduplicated per resource.
+        spans.sort_by_key(|(start, _, _)| *start);
+        let mut html_image_embedded = String::with_capacity(html_contents.len());
+        let mut last_end = 0usize;
+        for (start, end, cid) in spans {
+            if start < last_end {
+                continue; // overlapping match from the two regex passes
+            }
+            html_image_embedded.push_str(&html_contents[last_end..start]);
+            html_image_embedded.push_str(&format!("cid:{cid}"));
+            last_end = end;
+        }
+        html_image_embedded.push_str(&html_contents[last_end..]);
+
         let mut multi_part = MultiPart::related().singlepart(
             SinglePart::builder()
                 .header(header::ContentType::TEXT_HTML)
@@ -196,21 +286,19 @@ impl MultiPartHtmlWithImages for MultiPart {
         );
 
         for (cid, mime, full_file_path) in images {
-            // let mime = match mime {
-            //     Ok(mime_type) => mime_type,
-            //     Err(e) => {
-            //         // Unable to determine the MIME type? Skip attachment file and report the error
-            //         eprintln!("{e:?}");
-            //         continue;
-            //     }
-            // };
-            let image_data = fs::read(full_file_path).context("Error reading image")?;
+            let image_data = match fs::read(&full_file_path) {
+                Ok(data) => data,
+                Err(e) => {
+                    log::debug!("Skipping unreadable inline image `{cid}`: {e}");
+                    continue;
+                }
+            };
             let image_body = Body::new(image_data);
             multi_part = multi_part.singlepart(
                 Attachment::new_inline(cid).body(
                     image_body,
                     mime.parse()
-                        .context("Unable to parse attached image content type")?, // FIXME: Skip iteration instead of return
+                        .context("Unable to parse attached image content type")?,
                 ),
             )
         }
@@ -255,32 +343,8 @@ impl MultipleAddressParser for LettreMessageBuilder {
     }
 }
 
-// #[derive(Debug)]
-// pub struct SecUtf8Credentials {
-//     username: SecUtf8,
-//     password: SecUtf8,
-// }
-
-// impl SecUtf8Credentials {
-//     pub fn new(username: String, password: String) -> Self {
-//         Self {
-//             username: SecUtf8::from(username),
-//             password: SecUtf8::from(password),
-//         }
-//     }
-// }
-
-// impl From<SecUtf8Credentials> for lettre::transport::smtp::authentication::Credentials {
-//     fn from(credentials: SecUtf8Credentials) -> Self {
-//         lettre::transport::smtp::authentication::Credentials::new(
-//             credentials.username.into_unsecure(),
-//             credentials.password.into_unsecure(),
-//         )
-//     }
-// }
-
 /// Defines how to connect
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Authentication {
     NoAuth,
     Tls,
@@ -297,7 +361,7 @@ impl std::fmt::Display for Authentication {
     }
 }
 
-#[derive(thiserror::Error, Debug)]
+#[derive(thiserror::Error, Debug, PartialEq)]
 pub enum RelayError {
     #[error("Unknown SMTP authentication method \"{0}\"")]
     UnknownAuthenticationMethod(String),
@@ -318,111 +382,6 @@ impl FromStr for Authentication {
     }
 }
 
-/// Concrete description of the required SMTP connection
-#[derive(Debug)]
-pub struct SmtpConnectionInfo<'relay> {
-    relay: &'relay str,
-    port: u16,
-    auth: Authentication,
-    timeout: Duration,
-}
-
-impl<'relay> SmtpConnectionInfo<'relay> {
-    #[inline]
-    pub fn new(relay: &'relay str, port: u16, auth: Authentication, timeout: Duration) -> Self {
-        Self {
-            auth,
-            port,
-            relay,
-            timeout,
-        }
-    }
-
-    #[inline]
-    pub fn auth(&self) -> &Authentication {
-        &self.auth
-    }
-
-    #[inline]
-    pub fn port(&self) -> &u16 {
-        &self.port
-    }
-
-    #[inline]
-    pub fn relay(&self) -> &str {
-        self.relay
-    }
-
-    #[inline]
-    pub fn timeout(&self) -> &Duration {
-        &self.timeout
-    }
-}
-
-#[derive(Debug)]
-pub struct SmtpConnectionBuilder<'relay> {
-    relay: &'relay str,
-    port: Option<u16>,
-    auth: Authentication,
-    timeout: Option<Duration>,
-}
-
-impl<'relay> SmtpConnectionBuilder<'relay> {
-    #[inline]
-    pub fn new() -> Self {
-        Self {
-            relay: "localhost",
-            port: None,
-            auth: Authentication::NoAuth,
-            timeout: None,
-        }
-    }
-
-    #[inline]
-    pub fn auth(mut self, auth: Authentication) -> Self {
-        self.auth = auth;
-        self
-    }
-
-    #[inline]
-    pub fn port(mut self, port: u16) -> Self {
-        self.port = Some(port);
-        self
-    }
-
-    #[inline]
-    pub fn relay(mut self, relay: &'relay str) -> Self {
-        self.relay = relay;
-        self
-    }
-
-    #[inline]
-    pub fn timeout(mut self, timeout: Duration) -> Self {
-        self.timeout = Some(timeout);
-        self
-    }
-
-    #[inline]
-    pub fn build(self) -> SmtpConnectionInfo<'relay> {
-        SmtpConnectionInfo {
-            port: match self.port {
-                Some(port) => port,
-                None => match self.auth {
-                    Authentication::NoAuth => 25,
-                    Authentication::Tls => 465,
-                    Authentication::Starttls => 587,
-                },
-            },
-            auth: self.auth,
-            relay: self.relay,
-            timeout: match self.timeout {
-                Some(duration) => duration,
-                None => Duration::from_secs(60),
-            },
-        }
-    }
-}
-
 #[derive(Debug, Default, Clone)]
 pub struct MessageBuilder<'a> {
     from: Option<&'a str>,
@@ -436,6 +395,7 @@ pub struct MessageBuilder<'a> {
     resources_path: Option<&'a Path>,
     alternative_content: Option<&'a str>,
     attachments: Option<&'a str>,
+    attachments_root: Option<&'a Path>,
 }
 
 impl<'a> MessageBuilder<'a> {
@@ -485,12 +445,13 @@ impl<'a> MessageBuilder<'a> {
     }
 
     pub fn alternative_content(&mut self, content: &'a str) -> &mut Self {
-        self.content = Some(content);
+        self.alternative_content = Some(content);
         self
     }
 
-    pub fn attachments(&mut self, attachments: &'a str) -> &mut Self {
+    pub fn attachments(&mut self, attachments: &'a str, root: Option<&'a Path>) -> &mut Self {
         self.attachments = Some(attachments);
+        self.attachments_root = root;
         self
     }
 
@@ -534,7 +495,10 @@ impl<'a> MessageBuilder<'a> {
         }
 
         if let Some(attachments) = self.attachments {
-            new_message = new_message.attachments(attachments)?;
+            let root = self
+                .attachments_root
+                .unwrap_or_else(|| Path::new("."));
+            new_message = new_message.attachments(attachments, root)?;
         }
 
         Ok(new_message)
@@ -621,49 +585,11 @@ impl Message {
         self
     }
 
-    pub fn attachments(mut self, attachments: &str) -> Result<Self> {
-        // self.attachments = Some(MultiPart::attachments(attachments));
-        self.attachments = MultiPart::attachments(attachments)?;
+    pub fn attachments(mut self, attachments: &str, root: &Path) -> Result<Self> {
+        self.attachments = MultiPart::attachments(attachments, root)?;
         Ok(self)
     }
 }
-
-// impl std::convert::From<Message> for LettreMessage {
-//     fn from(message: Message) -> Self {
-//         let mut multipart: Option<MultiPart> = None;
-
-//         if let Some(alternative_content) = message.alternative_content {
-//             multipart = Some(MultiPart::alternative().singlepart(alternative_content));
-//         }
-
-//         if let Some(content) = message.content {
-//             multipart = if let Some(parts) = multipart {
-//                 Some(parts.multipart(content))
-//             } else {
-//                 Some(content)
-//             };
-//         }
-
-//         if let Some(attachments) = message.attachments {
-//             multipart = if let Some(parts) = multipart {
-//                 Some(MultiPart::mixed().multipart(parts).multipart(attachments))
-//             } else {
-//                 Some(attachments)
-//             };
-//         }
-
-//         message
-//             .message_builder
-//             .multipart(multipart.unwrap_or_else(|| {
-//                 MultiPart::mixed().singlepart(
-//                     SinglePart::builder()
-//                         .header(header::ContentType::TEXT_PLAIN)
-//                         .body(String::new()), // Empty E-mail if no contents were given
-//                 )
-//             }))
-//             .expect("Unable to create a message multi-part")
-//     }
-// }
 
 impl std::convert::TryFrom<Message> for LettreMessage {
     type Error = anyhow::Error;
@@ -705,14 +631,6 @@ impl std::convert::TryFrom<Message> for LettreMessage {
     }
 }
 
-#[derive(Debug)]
-pub enum ConnectionMode {
-    Once,
-    Service,
-}
-// struct Content<'a>(&'a str);
-// struct AlternativeContent<'a>(&'a str);
-// struct Attachments<'a>(&'a str);
 /// Establishes a connection and sends SMTP messages from its own thread (actor).
 /// Receiving Messages from a Messages Channel and sends them downstream to the connection.
 // #[derive(Debug)]
@@ -808,5 +726,307 @@ impl<'a> Connection<'a> {
 
         connection?.send(&msg)?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Minimal 1x1 transparent PNG; the `infer` crate recognizes it by its
+    /// magic bytes and reports `image/png`.
+    const PNG_1X1: &[u8] = &[
+        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44,
+        0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00, 0x00, 0x1F,
+        0x15, 0xC4, 0x89, 0x00, 0x00, 0x00, 0x0A, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9C, 0x62, 0x00,
+        0x01, 0x00, 0x00, 0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00, 0x00, 0x00, 0x00, 0x49,
+        0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
+    ];
+
+    fn temp_dir(tag: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("osa_mailer_test_{tag}_{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn split_addresses_trims_and_filters_empty() {
+        let parts: Vec<&str> = split(" a@x.io , b@x.io ; c@x.io ,  ").collect();
+        assert_eq!(parts, vec!["a@x.io", "b@x.io", "c@x.io"]);
+        assert_eq!(split("").count(), 0);
+    }
+
+    #[test]
+    fn authentication_parses_known_methods() {
+        assert_eq!("noauth".parse::<Authentication>(), Ok(Authentication::NoAuth));
+        assert_eq!("TLS".parse::<Authentication>(), Ok(Authentication::Tls));
+        assert_eq!(" starttls ".parse::<Authentication>(), Ok(Authentication::Starttls));
+        assert!("bogus".parse::<Authentication>().is_err());
+    }
+
+    #[test]
+    fn owned_filename_string_extracts_name() {
+        assert_eq!(
+            owned_filename_string(Path::new("a/b/c.txt")).unwrap(),
+            "c.txt"
+        );
+    }
+
+    #[test]
+    fn resolve_within_root_accepts_paths_inside_root() {
+        let dir = temp_dir("root_ok");
+        fs::write(dir.join("a.txt"), "x").unwrap();
+        fs::create_dir_all(dir.join("sub")).unwrap();
+        fs::write(dir.join("sub/b.txt"), "x").unwrap();
+
+        let expected_root = dir.canonicalize().unwrap();
+        assert_eq!(
+            resolve_within_root("a.txt", &dir).unwrap(),
+            expected_root.join("a.txt")
+        );
+        assert!(resolve_within_root("sub/b.txt", &dir).is_ok());
+    }
+
+    #[test]
+    fn resolve_within_root_rejects_dotdot_escape() {
+        let dir = temp_dir("root_escape");
+        let outside = dir
+            .parent()
+            .unwrap()
+            .join(format!("osa_mailer_outside_{}", std::process::id()));
+        fs::write(&outside, "outside").unwrap();
+
+        let rel = format!("../{}", outside.file_name().unwrap().to_string_lossy());
+        assert!(resolve_within_root(&rel, &dir).is_err());
+
+        let _ = fs::remove_file(&outside);
+    }
+
+    #[test]
+    fn resolve_within_root_rejects_absolute_paths() {
+        let dir = temp_dir("root_abs");
+        assert!(resolve_within_root("C:\\Windows\\win.ini", &dir).is_err());
+        assert!(resolve_within_root("/etc/passwd", &dir).is_err());
+    }
+
+    #[test]
+    fn resolve_within_root_rejects_external_urls() {
+        let dir = temp_dir("root_url");
+        assert!(resolve_within_root("http://example.com/x.png", &dir).is_err());
+        assert!(resolve_within_root("https://example.com/x.png", &dir).is_err());
+    }
+
+    #[test]
+    fn resolve_within_root_rejects_missing_files() {
+        let dir = temp_dir("root_missing");
+        assert!(resolve_within_root("nope.txt", &dir).is_err());
+    }
+
+    /// Render a full message (headers + MIME body) as a string for inspection.
+    fn render(msg: LettreMessage) -> String {
+        String::from_utf8(msg.formatted()).expect("valid utf-8")
+    }
+
+    /// Decode the Base64-encoded body of the `text/html` part of a rendered
+    /// message (the HTML part carries a Base64 content-transfer-encoding).
+    fn decode_html_part(msg: &str) -> String {
+        use base64::{engine::general_purpose::STANDARD, Engine};
+
+        let lines: Vec<&str> = msg.lines().collect();
+        let start = lines
+            .iter()
+            .position(|l| l.trim().to_ascii_lowercase().starts_with("content-type: text/html"))
+            .expect("message must contain a text/html part");
+
+        // Skip the remaining headers of the part (up to the blank line)
+        let mut i = start + 1;
+        while i < lines.len() && !lines[i].is_empty() && !lines[i].starts_with("--") {
+            i += 1;
+        }
+
+        // Collect the (wrapped) base64 body lines up to the next boundary
+        let mut body = String::new();
+        while i < lines.len() && !lines[i].trim_start().starts_with("--") {
+            body.push_str(lines[i].trim());
+            i += 1;
+        }
+
+        let decoded = STANDARD.decode(body).expect("valid base64");
+        String::from_utf8(decoded).expect("utf-8 html")
+    }
+
+    /// Build and render a message whose HTML content is processed by
+    /// `html_with_images` against the given resources root.
+    fn message_with_content(content: &str, root: Option<&Path>) -> String {
+        let msg = Message::default()
+            .from("from@example.com")
+            .expect("from")
+            .to_addresses("to@example.com")
+            .expect("to")
+            .subject("t")
+            .content(content, root)
+            .expect("content")
+            .try_into()
+            .expect("try_into");
+        render(msg)
+    }
+
+    fn message_with_attachments(paths: &str, root: &Path) -> String {
+        let msg = Message::default()
+            .from("from@example.com")
+            .expect("from")
+            .to_addresses("to@example.com")
+            .expect("to")
+            .subject("t")
+            .attachments(paths, root)
+            .expect("attachments")
+            .try_into()
+            .expect("try_into");
+        render(msg)
+    }
+
+    #[test]
+    fn attachments_resolves_within_root() {
+        let dir = temp_dir("attach_ok");
+        fs::write(dir.join("a.txt"), "alpha").unwrap();
+        fs::write(dir.join("b.txt"), "bravo").unwrap();
+
+        let rendered = message_with_attachments("a.txt; b.txt", &dir);
+        assert!(rendered.contains(r#"filename="a.txt""#));
+        assert!(rendered.contains(r#"filename="b.txt""#));
+    }
+
+    #[test]
+    fn attachments_skips_paths_that_escape_root() {
+        let dir = temp_dir("attach_escape");
+        fs::write(dir.join("inside.txt"), "in").unwrap();
+        let outside = dir
+            .parent()
+            .unwrap()
+            .join(format!("osa_mailer_attach_outside_{}", std::process::id()));
+        fs::write(&outside, "out").unwrap();
+
+        let rendered = message_with_attachments("inside.txt, ../x", &dir);
+        assert!(rendered.contains(r#"filename="inside.txt""#));
+
+        // An absolute path must not be attached
+        let multi_part = MultiPart::attachments("C:\\Windows\\win.ini", &dir).unwrap();
+        assert!(multi_part.is_none());
+
+        let _ = fs::remove_file(&outside);
+    }
+
+    #[test]
+    fn inline_image_is_inlined_from_resolved_template_path() {
+        // Plan gap G1-9: the image lives under the template root, not the CWD,
+        // so it must be found via the resolved path.
+        let dir = temp_dir("images_ok");
+        fs::create_dir_all(dir.join("images")).unwrap();
+        fs::write(dir.join("images/logo.png"), PNG_1X1).unwrap();
+
+        let html = "<html><body><img src=\"images/logo.png\" alt=\"l\"> the file logo.png exists</body></html>";
+        let rendered = message_with_content(html, Some(&dir));
+        let decoded = decode_html_part(&rendered);
+
+        assert!(decoded.contains("cid:image_0"), "src must be replaced by a cid");
+        assert!(!decoded.contains("src=\"images/logo.png\""));
+        // Only the matched src span is rewritten, never other occurrences
+        assert!(decoded.contains("the file logo.png exists"));
+        assert!(rendered.contains("image/png"));
+    }
+
+    #[test]
+    fn duplicate_image_references_share_one_cid_and_attachment() {
+        let dir = temp_dir("images_dupe");
+        fs::create_dir_all(dir.join("images")).unwrap();
+        fs::write(dir.join("images/logo.png"), PNG_1X1).unwrap();
+
+        let html = "<img src=\"images/logo.png\"><img src=\"images/logo.png\">";
+        let rendered = message_with_content(html, Some(&dir));
+        let decoded = decode_html_part(&rendered);
+
+        assert_eq!(decoded.matches("cid:image_0").count(), 2);
+        // The image is attached exactly once despite two references
+        assert_eq!(rendered.matches("image/png").count(), 1);
+    }
+
+    #[test]
+    fn missing_inline_image_is_skipped_not_fatal() {
+        let dir = temp_dir("images_missing");
+        fs::create_dir_all(dir.join("images")).unwrap();
+
+        let html = "<img src=\"images/gone.png\">";
+        let rendered = message_with_content(html, Some(&dir));
+        let decoded = decode_html_part(&rendered);
+        assert!(!decoded.contains("cid:"));
+        assert!(decoded.contains("images/gone.png"));
+    }
+
+    #[test]
+    fn external_url_image_is_skipped_not_fatal() {
+        let dir = temp_dir("images_url");
+        let html = "<img src=\"http://example.com/x.png\">";
+        let rendered = message_with_content(html, Some(&dir));
+        let decoded = decode_html_part(&rendered);
+        assert!(!decoded.contains("cid:"));
+        assert!(decoded.contains("http://example.com/x.png"));
+    }
+
+    #[test]
+    fn escaping_inline_image_is_skipped_not_fatal() {
+        // `secret.png` exists, but outside the template root (`subdir/`):
+        // it must be skipped, not attached.
+        let dir = temp_dir("images_escape");
+        fs::create_dir_all(dir.join("subdir")).unwrap();
+        fs::write(dir.join("secret.png"), PNG_1X1).unwrap();
+
+        let html = "<img src=\"../secret.png\">";
+        let rendered = message_with_content(html, Some(&dir.join("subdir")));
+        let decoded = decode_html_part(&rendered);
+        assert!(!decoded.contains("cid:"));
+        assert!(decoded.contains("../secret.png"));
+    }
+
+    #[test]
+    fn message_builds_alternative_plain_and_html_parts() {
+        // Plan gap G1-1: alternative_content must produce a text/plain part
+        // alongside the HTML part (previously it silently replaced the
+        // HTML content).
+        let raw = send_message("from@example.com", "to@example.com", "<b>Hi</b>", Some("Plain text body"));
+
+        assert!(raw.contains("text/plain"), "plain alternative part missing");
+        assert!(raw.contains("text/html"), "html part missing");
+        // base64("Plain text body")
+        assert!(raw.contains("UGxhaW4gdGV4dCBib2R5"), "alt body must be present");
+        assert!(raw.contains("multipart/alternative"));
+    }
+
+    #[test]
+    fn message_without_alternative_has_no_plain_part() {
+        let raw = send_message("from@example.com", "to@example.com", "<b>Hi</b>", None);
+        assert!(raw.contains("text/html"));
+        assert!(!raw.contains("text/plain"));
+    }
+
+    fn send_message(
+        from: &str,
+        to: &str,
+        content: &str,
+        alternative: Option<&str>,
+    ) -> String {
+        let dir = temp_dir("msg_parts");
+        let mut message = Message::default()
+            .from(from)
+            .expect("from")
+            .to_addresses(to)
+            .expect("to")
+            .subject("t")
+            .content(content, Some(&dir))
+            .expect("content");
+        if let Some(alt) = alternative {
+            message = message.alternative_content(alt);
+        }
+        render(message.try_into().expect("try_into"))
     }
 }
