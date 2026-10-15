@@ -335,6 +335,108 @@ pub fn run(config: RunConfig) -> anyhow::Result<()> {
 }
 
 #[cfg(test)]
+mod dependency_pins {
+    //! Plan Phase 1 (G4-1/G4-2): the pinned crates must sit on their
+    //! current major series. These tests read `Cargo.lock` so a regression
+    //! to an older series fails the suite.
+
+    fn locked_version(crate_name: &str) -> Option<String> {
+        let lock =
+            std::fs::read_to_string(format!("{}/Cargo.lock", env!("CARGO_MANIFEST_DIR"))).ok()?;
+        let mut lines = lock.lines();
+        while let Some(line) = lines.next() {
+            if line.trim() == format!("name = \"{crate_name}\"") {
+                let version = lines.next()?.trim().to_string();
+                return version
+                    .strip_prefix("version = \"")
+                    .and_then(|v| v.strip_suffix('"'))
+                    .map(str::to_string);
+            }
+        }
+        None
+    }
+
+    fn assert_locked(crate_name: &str, expected: &str) {
+        let version = locked_version(crate_name)
+            .unwrap_or_else(|| panic!("{crate_name} not found in Cargo.lock"));
+        assert!(
+            version.starts_with(expected),
+            "{crate_name} is {version}, expected version starting with {expected}"
+        );
+    }
+
+    #[test]
+    fn lettre_is_on_0_11() {
+        assert_locked("lettre", "0.11");
+    }
+
+    #[test]
+    fn thiserror_is_on_2() {
+        assert_locked("thiserror", "2");
+    }
+
+    #[test]
+    fn strum_is_on_0_27() {
+        assert_locked("strum", "0.27");
+    }
+
+    #[test]
+    fn handlebars_is_on_6() {
+        assert_locked("handlebars", "6");
+    }
+
+    #[test]
+    fn liquid_is_current() {
+        // 0.26.x is the newest stable liquid series (0.27+ is prerelease-only)
+        assert_locked("liquid", "0.26");
+    }
+
+    #[test]
+    fn infer_is_on_0_16() {
+        assert_locked("infer", "0.16");
+    }
+
+    #[test]
+    fn tera_is_current() {
+        assert_locked("tera", "1.20");
+    }
+
+    #[test]
+    fn lazy_static_is_not_a_direct_dependency() {
+        // tera still pulls lazy_static in transitively, but our own crate
+        // must use std::sync::LazyLock instead.
+        let lock = std::fs::read_to_string(format!(
+            "{}/Cargo.lock",
+            env!("CARGO_MANIFEST_DIR")
+        ))
+        .expect("Cargo.lock exists");
+        let mut lines = lock.lines();
+        let (mut in_osa, mut in_deps, mut direct) = (false, false, false);
+        while let Some(line) = lines.next() {
+            let t = line.trim();
+            if t == "name = \"osa_mailer\"" {
+                in_osa = true;
+            } else if in_osa {
+                if t.starts_with("dependencies = [") {
+                    in_deps = true;
+                } else if in_deps {
+                    if t == "]" {
+                        break;
+                    }
+                    if t == "\"lazy_static\"" {
+                        direct = true;
+                    }
+                }
+            }
+        }
+        assert!(
+            !direct,
+            "osa_mailer must not depend on lazy_static directly (use std::sync::LazyLock)"
+        );
+    }
+}
+
+#[cfg(test)]
 mod run_tests {
     use super::*;
     use std::path::Path;

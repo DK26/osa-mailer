@@ -1,6 +1,6 @@
 # OSA-Mailer — Upgrade Plan (Full Renewal + Missing Features)
 
-> Status: **v1.0** (2026-10-15). Gap inventory verified by two independent passes:
+> Status: **v1.1** (2026-10-15). Gap inventory verified by two independent passes:
 > (1) direct code/doc reading by the planner, (2) the `gap-audit` review workflow
 > (run `20261015-084544-gap-audit-0d77fd`, 5 critics × 30 findings, 9 findings
 > independently confirmed by cross-model verification votes, ledger
@@ -16,6 +16,15 @@
 > re-verifying the `serde(default)` and path-join defects), and the planner's own
 > full-repo read. Ledger "gaps" (critic self-declared coverage limits) are folded into
 > §2.6.
+>
+> **Progress (2026-10-15):** Phase 0 ✅ (`4f4fb6c`); Phase 2 claim/commit ✅
+> (`4f4fb6c`); Phase 1 ✅ — stack renewal: `lettre 0.11.23` (source-compatible, no
+> code changes needed), `thiserror 2`, `handlebars 6.4.4`, `strum 0.27.2`, `infer 0.16`,
+> `tera 1.20.0`, `liquid 0.26.11` (newest stable), `lazy_static` →
+> `std::sync::LazyLock`, edition 2024, `Cargo.lock` version-pin tests, mock-SMTP
+> integration test (`tests/mock_smtp.rs`). Open: Phase 1 acceptance extras
+> (`cargo deny`, ≥90% branch coverage — tools not installed in this environment),
+> rest of Phase 2, Phases 3–5, §5 decisions.
 
 ## 1. Executive summary
 

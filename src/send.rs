@@ -1,5 +1,3 @@
-use lazy_static::lazy_static;
-
 use anyhow::{anyhow, Context, Result};
 use lettre::address::AddressError;
 use lettre::message::Message as LettreMessage;
@@ -13,13 +11,12 @@ use regex::Regex;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use std::sync::LazyLock;
 
-lazy_static! {
-    static ref HTML_SRC_PATTERN: Regex =
-        Regex::new(r#".*?<.*?src=["']?([^;>=]+?)["']?(?:>|\s\w+=)"#).unwrap();
-    static ref CSS_URL_PATTERN: Regex =
-        Regex::new(r#".*?<.*?url\(["']?([^;>=]+?)["']?\)"#).unwrap();
-}
+static HTML_SRC_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r#".*?<.*?src=["']?([^;>=]+?)["']?(?:>|\s\w+=)"#).unwrap());
+static CSS_URL_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r#".*?<.*?url\(["']?([^;>=]+?)["']?\)"#).unwrap());
 
 /// Restricts a user-provided resource path (attachment, image, template) to stay
 /// within a trusted root directory. Absolute paths, `..` escapes and external
