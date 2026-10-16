@@ -31,10 +31,19 @@
 > timeout via `SmtpTransportBuilder::timeout` (G2-6; `SMTP_TIMEOUT_SECS`,
 > default 60 s) with reconnect-on-failure (lettre's pool dials per e-mail and
 > drops broken connections); `osa_mailer.cmd` shell log redirection deprecated;
-> `tests/reliability.rs` (4 integration tests). Open: Phase 1 acceptance extras
+> `tests/reliability.rs` (4 integration tests).
+>
+> **Progress (2026-10-16, 2):** Phase 2 error-report e-mail ✅ (G3-3, G3-4) —
+> `src/notify.rs`: one plain-text summary e-mail per failed run, from the first
+> failed e-mail's sender to the union of the failed entries' `notify_error`
+> recipients (UTC-ordered, deduplicated; `Entry.notify_error` now
+> `#[serde(default)]` so entries without it parse); sent best-effort over the
+> same connection (a separate `error_relay` stays decision point 2 / Phase 3);
+> a failed notification is logged, never counted as a composed-mail failure;
+> report body carries subjects + error text only (G5-3 redaction verified).
+> **Phase 2 is complete.** Open: Phase 1 acceptance extras
 > (`cargo deny`, ≥90% branch coverage — tools not installed in this environment),
-> the Phase 2 error-report e-mail (G3-3/G3-4), Phases 3–6 (Phase 6 telemetry
-> added 2026-10-16 on owner request), §5 decisions.
+> Phases 3–6 (Phase 6 telemetry added 2026-10-16 on owner request), §5 decisions.
 
 ## 1. Executive summary
 

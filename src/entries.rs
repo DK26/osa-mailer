@@ -83,6 +83,11 @@ pub(crate) struct ComposedEmail {
     /// the whole group (plan gap G1-3).
     #[serde(default)]
     pub(crate) entry_ids: Vec<String>,
+    /// The `notify_error` recipients of the entries this e-mail was
+    /// composed from (union, UTC-ordered, deduplicated) — used for the
+    /// error-report e-mail (plan gap G3-3).
+    #[serde(default)]
+    pub(crate) notify_error: Vec<String>,
 }
 
 #[derive(thiserror::Error, Debug)]
@@ -108,6 +113,9 @@ pub(crate) enum EntryComposeError {
 pub(crate) struct Entry {
     id: String,
     utc: DateTime<FixedOffset>,
+    /// Optional in the documented entry shape: entries without a
+    /// `notify_error` list simply get no error-report recipients.
+    #[serde(default)]
     notify_error: Vec<String>,
     email: Email,
     context: serde_json::Map<String, serde_json::Value>,
@@ -371,17 +379,29 @@ pub(crate) fn compose_emails(
                     header: entry_metadata.entry.email.clone(),
                     context: entry_metadata.entry.context.clone(),
                     entry_ids: vec![entry_metadata.id.clone()],
+                    notify_error: entry_metadata.entry.notify_error.clone(),
                 });
             };
         }
 
         if let EmailComposeMethod::Batch = email_compose_method {
             // Create a single E-mail from the entries batch with their accumulated context
+            // The group is already UTC-ordered (merge_email_requests), so the
+            // union below is in UTC order; duplicates keep their first slot.
+            let mut notify_error: Vec<String> = Vec::new();
+            for request in entries_metadata {
+                for address in &request.entry.notify_error {
+                    if !notify_error.contains(address) {
+                        notify_error.push(address.clone());
+                    }
+                }
+            }
             composed_emails.push(ComposedEmail {
                 id: *id,
                 header: email,
                 context: accumulated_context,
                 entry_ids: entries_metadata.iter().map(|e| e.id.clone()).collect(),
+                notify_error,
             });
         }
     }
@@ -582,6 +602,91 @@ mod tests {
 
         let err = compose(&pool).expect_err("must be an accumulated conflict");
         assert!(matches!(err, EntryComposeError::AccumulatedConflict { .. }));
+    }
+
+    /// Plan gap G3-3: the composed e-mail must carry its entry's
+    /// `notify_error` recipients so the error-report e-mail has someone to
+    /// address.
+    #[test]
+    fn single_mode_composed_email_carries_the_entry_notify_error() {
+        let email = base_email();
+        let json = serde_json::json!({
+            "id": "entry-id",
+            "utc": "2026-01-01T00:00:00+00:00",
+            "notify_error": ["Ops <ops@example.com>", "On-call <oncall@example.com>"],
+            "email": email,
+            "context": {}
+        })
+        .to_string();
+        let a = request(&json, "a", None);
+
+        let composed = compose(&vec![a]).expect("compose ok");
+        assert_eq!(composed.len(), 1);
+        assert_eq!(
+            composed[0].notify_error,
+            vec!["Ops <ops@example.com>".to_string(), "On-call <oncall@example.com>".to_string()]
+        );
+    }
+
+    /// Plan gap G3-3: in batch mode the notification recipients are the
+    /// union of the whole group's `notify_error` lists, in UTC (grouping)
+    /// order, deduplicated.
+    #[test]
+    fn batch_mode_unifies_notify_error_in_utc_order_deduplicated() {
+        let email = base_email();
+        let entry_with = |utc: &str, notify: serde_json::Value, id: &str| {
+            let json = serde_json::json!({
+                "id": "entry-id",
+                "utc": utc,
+                "notify_error": notify,
+                "email": email,
+                "context": { "+items": ["x"] }
+            })
+            .to_string();
+            request(&json, id, None)
+        };
+        let earlier = entry_with(
+            "2026-01-01T00:00:00+00:00",
+            serde_json::json!(["A <a@example.com>", "B <b@example.com>"]),
+            "earlier",
+        );
+        let later = entry_with(
+            "2026-01-02T00:00:00+00:00",
+            serde_json::json!(["B <b@example.com>", "C <c@example.com>"]),
+            "later",
+        );
+        let pool = vec![earlier, later];
+
+        let composed = compose(&pool).expect("compose ok");
+        assert_eq!(composed.len(), 1, "batch mode composes one e-mail");
+        assert_eq!(
+            composed[0].notify_error,
+            vec![
+                "A <a@example.com>".to_string(),
+                "B <b@example.com>".to_string(),
+                "C <c@example.com>".to_string(),
+            ],
+            "union in UTC order, deduplicated, first occurrence wins"
+        );
+    }
+
+    /// Plan gap G3-3: an entry without `notify_error` composes with no
+    /// notification recipients (the error-report e-mail is simply not
+    /// sent).
+    #[test]
+    fn composed_email_defaults_to_no_notify_error_recipients() {
+        let email = base_email();
+        let json = serde_json::json!({
+            "id": "entry-id",
+            "utc": "2026-01-01T00:00:00+00:00",
+            "email": email,
+            "context": {}
+        })
+        .to_string();
+        let a = request(&json, "a", None);
+
+        let composed = compose(&vec![a]).expect("compose ok");
+        assert!(composed[0].notify_error.is_empty());
     }
 
     #[test]

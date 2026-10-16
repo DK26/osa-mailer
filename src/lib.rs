@@ -2,6 +2,7 @@ pub mod app;
 pub mod entries;
 pub mod errors;
 pub mod logging;
+pub mod notify;
 pub mod outbox;
 pub mod render;
 pub mod send;
@@ -145,6 +146,23 @@ pub fn run(config: RunConfig) -> anyhow::Result<()> {
 
     let mut app_state = app::AppState::new();
 
+    // Error-report e-mail (plan gaps G3-3/G3-4): the `notify_error`
+    // recipients of the failed e-mails (deduplicated, first occurrence
+    // wins) and the `from` of the first failed e-mail, so the per-run
+    // summary e-mail has a sender.
+    let mut notify_recipients: Vec<String> = Vec::new();
+    let mut failed_from: Option<String> = None;
+    let mut note_failed_email = |email: &entries::ComposedEmail| {
+        if failed_from.is_none() {
+            failed_from = Some(email.header.from.clone());
+        }
+        for address in &email.notify_error {
+            if !notify_recipients.contains(address) {
+                notify_recipients.push(address.clone());
+            }
+        }
+    };
+
     for email in &composed_emails {
         let templates_root = templates_path.full().join(&email.header.template);
         let template_file = templates_root.join("template.html");
@@ -186,6 +204,7 @@ pub fn run(config: RunConfig) -> anyhow::Result<()> {
                         .set_context(format!("e-mail \"{}\"", email.header.subject))
                         .add_error(errors::ErrorWrapper(e)),
                 );
+                note_failed_email(email);
                 send_failures += 1;
                 continue;
             }
@@ -218,6 +237,7 @@ pub fn run(config: RunConfig) -> anyhow::Result<()> {
                         .set_context(format!("e-mail \"{}\"", email.header.subject))
                         .add_error(errors::ErrorWrapper(e)),
                 );
+                note_failed_email(email);
                 send_failures += 1;
                 continue;
             }
@@ -233,6 +253,7 @@ pub fn run(config: RunConfig) -> anyhow::Result<()> {
                         .set_context(format!("e-mail \"{}\"", email.header.subject))
                         .add_error(errors::ErrorWrapper(e)),
                 );
+                note_failed_email(email);
                 send_failures += 1;
                 continue;
             }
@@ -272,6 +293,7 @@ pub fn run(config: RunConfig) -> anyhow::Result<()> {
                         "could not claim all entry files for the outbox"
                     ))),
             );
+            note_failed_email(email);
             send_failures += 1;
             continue;
         }
@@ -309,6 +331,7 @@ pub fn run(config: RunConfig) -> anyhow::Result<()> {
                         .set_context(format!("e-mail \"{}\"", email.header.subject))
                         .add_error(errors::ErrorWrapper(e)),
                 );
+                note_failed_email(email);
                 // Give the claimed entries back to the outbox and record the
                 // attempt; over the attempt limit they are dead-lettered to
                 // `outbox/failed/` (plan gap G2-1).
@@ -348,6 +371,29 @@ pub fn run(config: RunConfig) -> anyhow::Result<()> {
                     report.context().unwrap_or("unknown context"),
                     event.0
                 );
+            }
+        }
+    }
+
+    // Error-report e-mail (plan gaps G3-3/G3-4): one summary e-mail to the
+    // failed e-mails' `notify_error` recipients. Best effort — if the relay
+    // itself is the failure, the notification fails too and is only logged;
+    // it never changes the pass outcome (the failures are already counted).
+    // A separate `error_relay` is tracked as decision point 2 (Phase 3
+    // config) and not part of this stage.
+    if let (Some(reports), Some(from)) = (app_state.error_reports(), &failed_from) {
+        if !notify_recipients.is_empty() {
+            match notify::build_summary_email(from, &notify_recipients, send_failures, reports)
+                .and_then(|message| connection.send(message))
+            {
+                Ok(()) => tracing::info!(
+                    "Error-report e-mail sent to: {}",
+                    notify_recipients.join(", ")
+                ),
+                Err(e) => tracing::error!(
+                    "Failed to send the error-report e-mail to {}: {e}",
+                    notify_recipients.join(", ")
+                ),
             }
         }
     }
