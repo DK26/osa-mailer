@@ -22,9 +22,19 @@
 > code changes needed), `thiserror 2`, `handlebars 6.4.4`, `strum 0.27.2`, `infer 0.16`,
 > `tera 1.20.0`, `liquid 0.26.11` (newest stable), `lazy_static` →
 > `std::sync::LazyLock`, edition 2024, `Cargo.lock` version-pin tests, mock-SMTP
-> integration test (`tests/mock_smtp.rs`). Open: Phase 1 acceptance extras
+> integration test (`tests/mock_smtp.rs`).
+>
+> **Progress (2026-10-16):** Phase 2 logging + SMTP robustness ✅ — structured
+> logging: process-wide `tracing` subscriber registered by `run()` (G2-2),
+> stdout + `logs/osa_mailer.log` with a locale-free name (G4-3), context
+> values and broken-entry content redacted to `debug!` (G5-3); per-e-mail SMTP
+> timeout via `SmtpTransportBuilder::timeout` (G2-6; `SMTP_TIMEOUT_SECS`,
+> default 60 s) with reconnect-on-failure (lettre's pool dials per e-mail and
+> drops broken connections); `osa_mailer.cmd` shell log redirection deprecated;
+> `tests/reliability.rs` (4 integration tests). Open: Phase 1 acceptance extras
 > (`cargo deny`, ≥90% branch coverage — tools not installed in this environment),
-> rest of Phase 2, Phases 3–5, §5 decisions.
+> the Phase 2 error-report e-mail (G3-3/G3-4), Phases 3–6 (Phase 6 telemetry
+> added 2026-10-16 on owner request), §5 decisions.
 
 ## 1. Executive summary
 
@@ -161,6 +171,7 @@ osa-mailer/
 │  │  └─ smtp.rs         # per-e-mail reconnect, timeouts, auth (warn on ignored creds)
 │  ├─ notify/            # error e-mails to notify_error (activates errors.rs/app.rs)
 │  ├─ logging.rs         # tracing + file/stdout, redaction of context values (G5-3)
+│  ├─ telemetry.rs       # per-run metrics (JSON report) + optional /health + /metrics
 │  └─ errors.rs          # kept; single error type (thiserror 2)
 ├─ app_path/ (→ inlined or published; single canonical path type, G4-3)
 ├─ tests/                # integration: fixture outbox → in-process mock SMTP
@@ -279,6 +290,23 @@ Key design decisions (to confirm):
 - Marketplace (G3-8): defer to its own design (index format, signatures,
   distribution) — track as a separate project.
 
+### Phase 6 — Observability (telemetry & health)
+- Per-run telemetry (owner request, 2026-10-16): every one-shot `run` and daemon
+  pass records machine-readable metrics — entries scanned, e-mails composed, sent,
+  failed, skipped (render/build/claim), dead-lettered, attempts, run duration,
+  per-mail SMTP round-trip (debug level) — as structured `tracing` events with
+  fields, plus a JSON report line appended to `logs/` (e.g. `osa_mailer.run.jsonl`).
+- Telemetry is **local-only**: no external transmission; counters carry subjects
+  and paths only, never context values or addresses (the G5-3 redaction rule
+  applies to telemetry as well).
+- Daemon pull endpoint (behind a config flag, bound to localhost only):
+  `/health` (liveness + last-run outcome) and `/metrics` (Prometheus exposition
+  text) so monitoring and Task Scheduler alerting can query the service.
+- **Acceptance**: a one-shot `run` writes a JSON report whose fields match the
+  resulting outbox state (test); `/metrics` on an ephemeral port returns the
+  counters (integration test); the report contains no context markers (redaction
+  test, same pattern as Phase 2 G5-3).
+
 ## 5. Decision points (need owner sign-off)
 1. **Daemon vs one-shot**: ship `daemon` in Phase 3 as the primary mode, or keep
    one-shot + external scheduler as the only supported mode? (Docs promise polling.)
@@ -298,6 +326,10 @@ Key design decisions (to confirm):
    keep vendored, or publish on crates.io?
 8. **Outbox intake hardening** (G5-7): sender allowlist in config (Phase 3) is enough
    for the threat model, or do we need entry signing/verification?
+9. **Telemetry format** (Phase 6, requested by the owner 2026-10-16): local-only
+   (JSON report + optional localhost `/health` + `/metrics`), no external
+   transmission — confirm Prometheus text format for `/metrics`, or is plain JSON
+   enough?
 
 ## 6. Risks & mitigations
 - **lettre 0.10 → 0.11 API churn**: isolated in `smtp.rs`/`build.rs`; mock-SMTP

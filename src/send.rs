@@ -12,6 +12,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::LazyLock;
+use std::time::Duration;
 
 static HTML_SRC_PATTERN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r#".*?<.*?src=["']?([^;>=]+?)["']?(?:>|\s\w+=)"#).unwrap());
@@ -628,9 +629,15 @@ impl std::convert::TryFrom<Message> for LettreMessage {
     }
 }
 
-/// Establishes a connection and sends SMTP messages from its own thread (actor).
-/// Receiving Messages from a Messages Channel and sends them downstream to the connection.
-// #[derive(Debug)]
+/// Establishes a connection and sends SMTP messages.
+///
+/// Reconnect semantics (plan gap G2-6): `SmtpTransport` keeps an SMTP
+/// connection pool that dials a fresh connection per e-mail, drops
+/// connections that broke (`test_connected`/`has_broken` checks), and
+/// re-dials for the next `send()`. So one failed e-mail never poisons the
+/// following ones: the next e-mail is sent over a new connection. Every
+/// connection is created with the per-e-mail `timeout` (dial + all SMTP
+/// command reads/writes), so a silent or wedged relay cannot hang a pass.
 pub struct Connection<'a> {
     // Username/Password Method: TLS/Starttls/NoAuth
     relay_server: &'a str,
@@ -640,15 +647,23 @@ pub struct Connection<'a> {
     // mode: ConnectionMode,
     connection: Option<SmtpTransport>,
     auth: Authentication,
+    /// Per-e-mail SMTP command/network timeout.
+    timeout: Duration,
 }
 
 impl<'a> Connection<'a> {
-    pub fn new(relay_server: &'a str, port: u16, auth: Authentication) -> Self {
+    pub fn new(
+        relay_server: &'a str,
+        port: u16,
+        auth: Authentication,
+        timeout: Duration,
+    ) -> Self {
         Self {
             // credentials: Credentials::new(username, password), // TODO: Improve security:
             relay_server,
             port,
             auth,
+            timeout,
             connection: None,
         }
     }
@@ -674,6 +689,7 @@ impl<'a> Connection<'a> {
         let connection = match self.auth {
             Authentication::NoAuth => SmtpTransport::builder_dangerous(self.relay_server)
                 .port(self.port)
+                .timeout(Some(self.timeout))
                 .build(),
             Authentication::Tls => {
                 let mut smtp_builder = SmtpTransport::relay(self.relay_server)
@@ -685,6 +701,7 @@ impl<'a> Connection<'a> {
 
                 smtp_builder
                     .port(self.port) // TODO: Set all configurations: https://docs.rs/lettre/0.10.0-rc.4/lettre/transport/smtp/struct.SmtpTransportBuilder.html#method.port
+                    .timeout(Some(self.timeout))
                     .build()
             }
             Authentication::Starttls => {
@@ -698,6 +715,7 @@ impl<'a> Connection<'a> {
 
                 smtp_builder
                     .port(self.port) // TODO: Set all configurations: https://docs.rs/lettre/0.10.0-rc.4/lettre/transport/smtp/struct.SmtpTransportBuilder.html#method.port
+                    .timeout(Some(self.timeout))
                     .build()
             }
         };

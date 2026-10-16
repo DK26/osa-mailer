@@ -8,20 +8,17 @@ SET PORT=25
 SET AUTH=noauth
 ::SET USERNAME=username
 ::SET PASSWORD=password
+:: Per-e-mail SMTP timeout in seconds (default 60)
+::SET SMTP_TIMEOUT_SECS=60
+:: Log level: error | warn | info | debug (default info)
+::SET OSA_LOG=info
 
-:: Prep Log
-SET LOG_FILE="logs\%date:~7,2%-%date:~4,2%-%date:~-4%_%time:~0,2%%time:~3,2%%time:~6,2%.log"
-MKDIR logs 2> NUL
+:: Run. Logging is done by the application itself: stdout plus
+:: logs\osa_mailer.log (locale-free name, see src/logging.rs). The previous
+:: %date%-based log file redirection is deprecated — it broke on
+:: non-English system locales (G4-3) and captured raw, unfiltered output.
+:: The exit code is passed through unchanged so the scheduler sees
+:: failures (G1-13).
+osa_mailer.exe
 
-:: Run & Log to file
-ECHO. >> %LOG_FILE%
-ECHO %START_TIME% >> %LOG_FILE%
-ECHO =================================== >> %LOG_FILE%
-osa_mailer.exe >> %LOG_FILE% 2>&1
-
-SET EXIT_CODE=%ERRORLEVEL%
-
-:: Read the log file for the caller
-TYPE %LOG_FILE%
-
-EXIT /B %EXIT_CODE%
+EXIT /B %ERRORLEVEL%

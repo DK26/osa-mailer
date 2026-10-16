@@ -169,6 +169,8 @@ fn run_sends_full_mime_to_smtp_and_archives_entry() {
         port,
         auth: Authentication::NoAuth,
         credentials: None,
+        smtp_timeout: std::time::Duration::from_secs(60),
+        log: osa_mailer::logging::LogConfig::new("info", Some(base.join("logs"))),
     };
 
     osa_mailer::run(config).expect("the e-mail must be delivered to the mock relay");

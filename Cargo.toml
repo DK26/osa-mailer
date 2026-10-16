@@ -32,6 +32,8 @@ lettre = { version = "0.11", default-features = false, features = [
     "rustls-tls",
 ] }
 infer = "0.16"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["local-time", "env-filter", "tracing-log"] }
 
 [dev-dependencies]
 base64 = "0.22"

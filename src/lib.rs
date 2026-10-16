@@ -1,13 +1,14 @@
 pub mod app;
 pub mod entries;
 pub mod errors;
+pub mod logging;
 pub mod outbox;
 pub mod render;
 pub mod send;
 
 use anyhow::Context;
 use lettre::transport::smtp::authentication::Credentials;
-use std::{env, fs, path::PathBuf, rc::Rc};
+use std::{env, fs, path::PathBuf, rc::Rc, time::Duration};
 
 use crate::render::{ContextData, TemplateData};
 
@@ -25,6 +26,10 @@ pub struct RunConfig {
     pub port: u16,
     pub auth: send::Authentication,
     pub credentials: Option<Credentials>,
+    /// Per-e-mail SMTP command/network timeout (plan gap G2-6).
+    pub smtp_timeout: Duration,
+    /// Log output for this run (plan Phase 2: G2-2/G5-3).
+    pub log: logging::LogConfig,
 }
 
 impl RunConfig {
@@ -48,12 +53,24 @@ impl RunConfig {
             _ => None,
         };
 
+        // Per-e-mail SMTP timeout (G2-6): seconds, default 60 (matches
+        // lettre's own default).
+        let smtp_timeout_secs: u64 = env::var("SMTP_TIMEOUT_SECS")
+            .unwrap_or_else(|_| "60".to_string())
+            .parse()
+            .context("The `SMTP_TIMEOUT_SECS` environment variable is not a valid number of seconds")?;
+
+        let base_dir = base_dir.into();
+        let log = logging::LogConfig::from_env(&base_dir);
+
         Ok(Self {
-            base_dir: base_dir.into(),
+            base_dir,
             server,
             port,
             auth,
             credentials,
+            smtp_timeout: Duration::from_secs(smtp_timeout_secs),
+            log,
         })
     }
 }
@@ -65,6 +82,10 @@ impl RunConfig {
 /// G1-13) so schedulers and callers can detect failures; template and
 /// render failures are per-mail and do not abort the pass (G1-8).
 pub fn run(config: RunConfig) -> anyhow::Result<()> {
+    // Structured logging (plan gap G2-2): register the process-wide
+    // subscriber; a second run() in the same process is a no-op.
+    logging::init(&config.log)?;
+
     // `outbox/` and `templates/` live next to the executable; `app_path`
     // resolves them relative to a base directory that tests can override.
     let outbox_path = app_path::AppPath::new(ENTRY_DIR)
@@ -88,8 +109,11 @@ pub fn run(config: RunConfig) -> anyhow::Result<()> {
 
     let entry_parse_results = entries::load_entries(outbox_path.full(), ENTRY_EXT);
 
+    // G5-3 redaction: `EntryParseError` carries the full raw entry content
+    // (including BCC), so it is logged at `debug` level only — never in the
+    // default (info) log.
     if !entry_parse_results.err.is_empty() {
-        eprintln!("Entry parsing errors: {:?}", entry_parse_results.err);
+        tracing::debug!("Entry parsing errors: {:?}", entry_parse_results.err);
     }
 
     let entries_pool = entry_parse_results.ok;
@@ -102,14 +126,18 @@ pub fn run(config: RunConfig) -> anyhow::Result<()> {
     // The full composed e-mails (including BCC and context) must not be
     // printed: they are persisted by the documented .cmd log redirection
     // (plan gaps G1-14 / G5-3).
-    println!(
+    tracing::info!(
         "Composed {} e-mail(s) from {} entr(y/ies)",
         composed_emails.len(),
         entries_pool.len()
     );
 
+    // One transport for the whole run; lettre's SMTP connection pool dials
+    // a fresh connection per e-mail and drops broken ones, so a failed send
+    // never poisons the following ones (plan gap G2-6). The per-e-mail
+    // network/command timeout is applied at establish time.
     let mut connection =
-        send::Connection::new(&config.server, config.port, config.auth.clone());
+        send::Connection::new(&config.server, config.port, config.auth.clone(), config.smtp_timeout);
 
     connection.establish(config.credentials.clone())?;
 
@@ -152,7 +180,7 @@ pub fn run(config: RunConfig) -> anyhow::Result<()> {
             Err(e) => {
                 // The e-mail was not delivered: count it as a failure so the
                 // pass (and the scheduler) can see it (plan gap G1-13).
-                eprintln!("Skipping e-mail \"{}\": {e:?}", email.header.subject);
+                tracing::error!("Skipping e-mail \"{}\": {e:?}", email.header.subject);
                 app_state.add_error_report(
                     errors::ErrorReport::new()
                         .set_context(format!("e-mail \"{}\"", email.header.subject))
@@ -184,7 +212,7 @@ pub fn run(config: RunConfig) -> anyhow::Result<()> {
         {
             Ok(v) => v,
             Err(e) => {
-                eprintln!("Skipping e-mail \"{}\": {e:?}", email.header.subject);
+                tracing::error!("Skipping e-mail \"{}\": {e:?}", email.header.subject);
                 app_state.add_error_report(
                     errors::ErrorReport::new()
                         .set_context(format!("e-mail \"{}\"", email.header.subject))
@@ -199,7 +227,7 @@ pub fn run(config: RunConfig) -> anyhow::Result<()> {
         let message = match message.try_into() {
             Ok(v) => v,
             Err(e) => {
-                eprintln!("Skipping e-mail \"{}\": {e:?}", email.header.subject);
+                tracing::error!("Skipping e-mail \"{}\": {e:?}", email.header.subject);
                 app_state.add_error_report(
                     errors::ErrorReport::new()
                         .set_context(format!("e-mail \"{}\"", email.header.subject))
@@ -227,7 +255,7 @@ pub fn run(config: RunConfig) -> anyhow::Result<()> {
             match fs::rename(entry_path, &claimed_path) {
                 Ok(()) => claimed.push((claimed_path, entry_path.clone())),
                 Err(e) => {
-                    eprintln!(
+                    tracing::warn!(
                         "Failed to claim entry {} for e-mail \"{}\": {e}",
                         entry_path.display(),
                         email.header.subject
@@ -256,15 +284,15 @@ pub fn run(config: RunConfig) -> anyhow::Result<()> {
                     let sidecar = outbox::sidecar_for(original_path);
                     match outbox::commit_sent(processing_path, &outbox_paths, &sidecar) {
                         Ok(()) => {
-                            println!(
+                            tracing::info!(
                                 "Email sent successfully: \"{}\" (archived {})",
                                 email.header.subject,
                                 processing_path.display()
                             );
                         }
                         Err(e) => {
-                            eprintln!(
-                                "Warning: e-mail \"{}\" was sent but its entry could not be archived ({}): {e}",
+                            tracing::error!(
+                                "E-mail \"{}\" was sent but its entry could not be archived ({}): {e}",
                                 email.header.subject,
                                 processing_path.display()
                             );
@@ -275,7 +303,7 @@ pub fn run(config: RunConfig) -> anyhow::Result<()> {
             }
             // Sending failure
             Err(e) => {
-                eprintln!("Failed to send e-mail \"{}\": {e}", email.header.subject);
+                tracing::error!("Failed to send e-mail \"{}\": {e}", email.header.subject);
                 app_state.add_error_report(
                     errors::ErrorReport::new()
                         .set_context(format!("e-mail \"{}\"", email.header.subject))
@@ -288,7 +316,7 @@ pub fn run(config: RunConfig) -> anyhow::Result<()> {
                     match fs::rename(processing_path, original_path) {
                         Ok(()) => {
                             if let Err(e2) = outbox::record_failure(original_path, &outbox_paths) {
-                                eprintln!(
+                                tracing::error!(
                                     "Failed to record the attempt for {}: {e2}",
                                     original_path.display()
                                 );
@@ -296,7 +324,7 @@ pub fn run(config: RunConfig) -> anyhow::Result<()> {
                             }
                         }
                         Err(e2) => {
-                            eprintln!(
+                            tracing::error!(
                                 "Failed to move claimed entry back to the outbox ({}): {e2}",
                                 processing_path.display()
                             );
@@ -315,7 +343,7 @@ pub fn run(config: RunConfig) -> anyhow::Result<()> {
     if let Some(reports) = app_state.error_reports() {
         for report in reports {
             for event in report.errors() {
-                eprintln!(
+                tracing::error!(
                     "ErrorReport [{}]: {}",
                     report.context().unwrap_or("unknown context"),
                     event.0
@@ -483,6 +511,8 @@ mod run_tests {
             port: 1,
             auth: send::Authentication::NoAuth,
             credentials: None,
+            smtp_timeout: Duration::from_secs(5),
+            log: logging::LogConfig::new("info", Some(base.join("logs"))),
         }
     }
 
@@ -631,5 +661,59 @@ mod run_tests {
         assert!(!paths.processing.join("orphan.json").exists());
 
         let _ = fs::remove_dir_all(&base);
+    }
+
+    /// Plan gap G2-2 regression: `run()` must register the structured
+    /// logging subscriber (before Phase 2 every `log!` call was a no-op).
+    #[test]
+    fn run_registers_a_logging_subscriber() {
+        let base = setup("log_subscriber");
+        let _result = run(config(&base)); // relay on port 1: the error is expected
+        assert!(
+            tracing::dispatcher::has_been_set(),
+            "run() must leave a working global logging subscriber behind"
+        );
+        let _ = fs::remove_dir_all(&base);
+    }
+
+    /// Serializes the tests that mutate process-wide environment variables
+    /// (`SMTP_TIMEOUT_SECS`, `OSA_LOG`): `env::set_var`/`env::remove_var`
+    /// are visible to every thread, so the two tests must not interleave.
+    static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    /// Plan gap G2-6: `SMTP_TIMEOUT_SECS` must configure the per-e-mail
+    /// SMTP timeout; `OSA_LOG` must configure the log level.
+    #[test]
+    fn run_config_from_env_reads_the_new_settings() {
+        let _env_guard = ENV_LOCK.lock().unwrap();
+        unsafe {
+            env::set_var("SMTP_TIMEOUT_SECS", "7");
+            env::set_var("OSA_LOG", "warn");
+        }
+        let base_path: PathBuf = Path::new("unused_base_dir").to_path_buf();
+        let config = RunConfig::from_env(&base_path).expect("env settings must parse");
+        unsafe {
+            env::remove_var("SMTP_TIMEOUT_SECS");
+            env::remove_var("OSA_LOG");
+        }
+
+        assert_eq!(config.smtp_timeout, Duration::from_secs(7));
+        assert_eq!(config.log.level, "warn");
+        assert_eq!(config.log.file_dir, Some(PathBuf::from("unused_base_dir").join("logs")));
+    }
+
+    /// Plan gap G2-6: an invalid `SMTP_TIMEOUT_SECS` must be rejected, not
+    /// silently defaulted.
+    #[test]
+    fn run_config_rejects_an_invalid_timeout() {
+        let _env_guard = ENV_LOCK.lock().unwrap();
+        unsafe {
+            env::set_var("SMTP_TIMEOUT_SECS", "not-a-number");
+        }
+        let result = RunConfig::from_env(Path::new("unused_base_dir"));
+        unsafe {
+            env::remove_var("SMTP_TIMEOUT_SECS");
+        }
+        assert!(result.is_err(), "an invalid timeout must be an error");
     }
 }
